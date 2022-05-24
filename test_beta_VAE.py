@@ -3,6 +3,7 @@ try:
         os.chdir("git_repository/BetaVAEImputation")
 except FileNotFoundError:
         pass
+
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -17,8 +18,10 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
+
 parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
 tf.reset_default_graph()
+
 
 
 if __name__ == '__main__':
@@ -94,7 +97,25 @@ if __name__ == '__main__':
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
-        
+
+        # Wrote a function within autoencodersbetaVAE.py to extract the z space, let's see what it does
+        tmp = vae.get_z_distribution
+        # attempt to extract z from read-in vae object
+        z_space = vae.z
+        z_mean = vae.z_mean
+        z_log_sigma_sq = vae.z_log_sigma_sq
+
+        #initialize the variable
+        init = tf.compat.v1.global_variables_initializer()
+
+        #run the graph
+        with tf.compat.v1.InteractiveSession() as sess:
+            sess.run(init) #execute init
+            #print the random values that we sample
+            print(sess.run(z_space, 
+                             feed_dict={'x': data}))
+
+
         ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
         max_iter = ImputeIter
 
@@ -105,7 +126,9 @@ if __name__ == '__main__':
         ReconstructionError = sum(((data_impute[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error (VAE):')
         print(ReconstructionError)
+        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")
         # np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")
+
         
     
         

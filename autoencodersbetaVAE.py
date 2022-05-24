@@ -213,7 +213,7 @@ class VariationalAutoencoder(object):
         return data_imputed, convergence
 
 
-    def impute_multiple(self, data_corrupt, max_iter = 10):
+    def impute_multiple(self, data_corrupt, max_iter=10):
         """
         Return a random sample from the decoder given a random sample from the latent distribution conditioned on data_corrupt
         """
@@ -386,7 +386,7 @@ class VariationalAutoencoder(object):
         data_corrupt and data_complete should both be scaled to use this function
         """
         losses = []
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
+        missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))[0]
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
         true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))

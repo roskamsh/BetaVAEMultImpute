@@ -1,10 +1,10 @@
 import os
-import json
+import pickle
+import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import r2_score
 import pandas as pd
 import json
+
 try:
     with open("example_config_VAE.json") as f:
         config = json.load(f)
@@ -15,7 +15,43 @@ data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
-def get_scaled_data():
+
+def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
+    assert data_missing.shape == data.shape
+    if multi_imputes is None:
+        # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
+        with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
+            multi_imputes = np.array(pickle.load(filehandle))
+    if data is None:
+        data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+    na_ind = np.where(np.isnan(data_missing))
+    means = np.mean(multi_imputes, axis=0)
+    unscaled_st_devs = np.std(multi_imputes, axis=0)
+    unscaled_differences = np.abs(data[na_ind] - means)
+    n_deviations = unscaled_differences / unscaled_st_devs
+    ci_90 = 1.645
+    ci_95 = 1.960
+    ci_99 = 2.576
+    prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
+    prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
+    prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
+    results = {
+        'prop_90': prop_90,
+        'prop_95': prop_95,
+        'prop_99': prop_99
+    }
+    for k, v in results.items():
+        print(k,':', v)
+    data = scaler.inverse_transform(data)
+    data_missing[na_ind] = means
+    data_missing = scaler.inverse_transform(data_missing)
+    differences = np.abs(data[na_ind] - data_missing[na_ind])
+    MAE = np.mean(differences)
+    results['multi_mae'] = MAE
+    print('average absolute error:', MAE)
+    return results
+
+def get_scaled_data(return_scaler=False, put_nans_back=False):
     for _ in range(3):
         if os.getcwd().split('/')[-1] == 'BetaVAEImputation':
             break
@@ -27,12 +63,17 @@ def get_scaled_data():
     sc = StandardScaler()
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
     sc.fit(data_missing_complete)
+    del data_missing_complete
     data_missing[na_ind] = 0
     data_missing = sc.transform(data_missing)
-    del data_missing_complete
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
-    return data, data_missing
+    if put_nans_back:
+        data_missing[na_ind] = np.nan
+    if return_scaler:
+        return data, data_missing, sc
+    else:
+        return data, data_missing
 
 
 def apply_scaler(data, data_missing, return_scaler=False):
@@ -90,14 +131,32 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     os.chdir(running_directory)
     return vae
 
+class DataMissingMaker:
+    def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):
+        self.data = complete_only
+        self.n_col = self.data.shape[1]
+        self.prop_miss_rows = prop_miss_rows
+        self.prop_miss_col = prop_miss_col
+        self.n_rows_to_null = int(len(complete_only) * prop_miss_rows)
 
-def add_zero_mask(x, col_prop=0.1, row_prop=0.2):
-    """
-    Changes a randomly selected proportion of the data to zero to simulate missing values
-    """
-    n_miss_cols = int(x.shape[1]*col_prop)
-    n_miss_rows = int(x.shape[0]*row_prop)
-    miss_cols = np.array([np.random.choice(x.shape[1], size=n_miss_cols, replace=False) for _ in range(n_miss_rows)]).reshape(-1)
-    miss_rows = np.repeat(np.random.choice(x.shape[0], size=n_miss_rows, replace=False), repeats=n_miss_cols)
-    x[(miss_cols, miss_rows)] = 0
-    return x
+
+    def get_random_col_selection(self):
+        n_cols_to_null = np.random.binomial(n=self.n_col, p=self.prop_miss_col)
+        return np.random.choice(range(self.n_col), n_cols_to_null, replace=False)
+
+    def generate_missing_data(self):
+        random_rows = np.random.choice(range(len(self.data)), self.n_rows_to_null, replace=False)
+        null_col_indexes = [self.get_random_col_selection() for _ in range(self.n_rows_to_null)]
+        null_row_indexes = [np.repeat(row, repeats=len(null_col_indexes[i])) for i, row in enumerate(random_rows)]
+        null_col_indexes = np.array([inner[j] for inner in null_col_indexes for j in range(len(inner))]) # flatten the nested arrays
+        null_row_indexes = np.array([inner[j] for inner in null_row_indexes for j in range(len(inner))]) # flatten the nested arrays
+        new_masked_x = np.copy(self.data)
+        new_masked_x[null_row_indexes, null_col_indexes] = np.nan
+        return new_masked_x
+
+
+
+if __name__=="__main__":
+    evaluate_coverage()
+
+
