@@ -28,7 +28,7 @@ def evaluate_coverage(truevals=None, impvals = None):
 if __name__=="__main__":
     from sklearn.preprocessing import StandardScaler
 
-    res = pd.read_csv('/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/pseudo-Gibbs/compiled_NA_indices.csv').values
+    res = pd.read_csv('/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/Metropolis-within-Gibbs/compiled_NA_indices.csv').values
     
     # Assign first column of values to new variable and then remove it from res
     grtruth = res[:,0]
