@@ -1,6 +1,13 @@
 import numpy as np
 import pandas as pd
 
+"""
+This module creates multiple repeats of the same dataset - each one with 
+different random missing data.
+This is a very inefficient way to do this and a much better way would be 
+to create a pre-processing step that masks a random proportion of the data 
+with each batch.
+"""
 data_path =  "../data/data_complete.csv"
 # corrupt_data_path = "./data/LGGGBM_missing_10perc_trial1.csv"
 
@@ -17,6 +24,7 @@ n_cols_to_null = int(n_cols * prop_missing_features)
 
 def get_random_col_selection():
     return np.random.choice(range(n_cols), n_cols_to_null, replace=False)
+
 train_data = []
 for _ in range(n_splits):
     random_rows  = np.random.choice(range(len(data)), n_rows_to_add_null, replace=False)

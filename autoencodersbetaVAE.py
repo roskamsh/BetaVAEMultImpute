@@ -1,11 +1,19 @@
 import random
 import numpy as np
 import tensorflow as tf
+from sklearn.metrics import r2_score
 from tensorflow.python.ops.gen_math_ops import exp
 Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
 
+def calculate_losses(true, preds):
+    return {
+        "RMSE": np.sqrt(((true - preds) ** 2).mean()),
+        "MAE": np.abs(true - preds).mean(),
+        "r2_score": r2_score(true, preds)
+
+    }
 
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
@@ -233,9 +241,9 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq, self.z, self.z_mean, self.z_log_sigma_sq],
-                             feed_dict={self.x: data_miss_val}) 
-
+            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean,
+                                                                                            self.x_hat_log_sigma_sq,
+                                                                                            self.z, self.z_mean, self.z_log_sigma_sq],  feed_dict={self.x: data_miss_val})
             X_hat_distribution = Normal(loc=x_hat_mean,
                                     scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq)))
 
@@ -249,10 +257,8 @@ class VariationalAutoencoder(object):
             X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
 
             # Compute negative log likelihood of X hat distribution from data_miss_val compared to _hat_sample
-            log_likl_na = -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+            sum_log_likl = self.sess.run(-tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
 
-            # Compute sum across all na ind of log likelihood between previous and current iteration
-            sum_log_likl = self.sess.run(log_likl_na)
             convergence_loglik.append(sum_log_likl)
 
             # Store the largest value imputed at the NA indices
@@ -263,31 +269,34 @@ class VariationalAutoencoder(object):
 
             ## To calculate acceptance probability, we need to calculate various metrics at each imputation iteration
             # Store z_samp from this iteration
-            if i == 0:
+            if i < 3:
                 # First iteration you must set z_samp to the first sampling
                 z_s_minus_1 = z_samp
                 x_hat_mean_s_minus_1 = x_hat_mean
                 x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
 
                 # Replace na_ind with x_hat_sample from first sampling
-                data_miss_val[na_ind] = x_hat_sample[na_ind] 
+                data_miss_val[na_ind] = x_hat_sample[na_ind]
             else:
                 # Define distributions
                 z_Distribution = Normal(loc = z_mean, scale = tf.sqrt(tf.exp(z_log_sigma_sq)))
                 z_prior = Normal(loc = np.zeros(z_mean.shape), scale = np.ones(z_mean.shape))
                 X_hat_distr_s_minus_1 = Normal(loc = x_hat_mean_s_minus_1, scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
 
-                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
-                log_q_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_samp))))
-                log_q_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_s_minus_1))))
-                log_p_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_samp)))) 
-                log_p_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_s_minus_1)))) 
-                log_p_Y_z_star = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distribution.log_prob(data_miss_val)))) 
-                log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
+
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with the following
+                log_q_z_star, log_q_z_s_minus_1, log_p_z_star, log_p_z_s_minus_1, log_p_Y_z_star, log_p_Y_z_s_minus_1, =\
+                                    self.sess.run(
+                                    [tf.reduce_sum(z_Distribution.log_prob(z_samp)), # log_q_z_star
+                                    tf.reduce_sum(z_Distribution.log_prob(z_s_minus_1)), # log_q_z_s_minus_1
+                                    tf.reduce_sum(z_prior.log_prob(z_samp)), # log_p_z_star
+                                    tf.reduce_sum(z_prior.log_prob(z_s_minus_1)), # log_p_z_s_minus_1
+                                    tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val)), # log_p_Y_z_star
+                                    tf.reduce_sum(X_hat_distr_s_minus_1.log_prob(data_miss_val))]
+                                    ) # log_p_Y_z_s_minus_1
 
                 # Acceptance probability of sample z_star
-                a_prob = self.sess.run(tf.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star)))
-
+                a_prob = np.exp(log_p_Y_z_star + log_p_z_star + log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1 + log_p_z_s_minus_1 + log_q_z_star))
                 # If we accept the new sample, set (s-1) z-sample as the new previous sampling
                 if np.random.uniform() < a_prob:
                     print("new sample accepted with acceptance probability", a_prob)
@@ -299,7 +308,7 @@ class VariationalAutoencoder(object):
                     data_miss_val[na_ind] = x_hat_sample[na_ind] # Otherwise retain Ymis(s-1)
                 else:
                     print("new sample rejected with acceptance probability", a_prob)
-            
+
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
@@ -372,20 +381,33 @@ class VariationalAutoencoder(object):
         self.losshistory_epoch = losshistory_epoch
         return self
 
-    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
+        """
+        data_corrupt and data_complete should both be scaled to use this function
+        """
         losses = []
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
-        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
-        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
+        data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
+        true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
-        data_miss_val[na_ind] = 0
+        data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val)
             data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if scaler is not None:
+                predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
+                target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
+            else:
+                predictions = np.copy(data_reconstruct[na_ind])
+                target_values = np.copy(true_values_for_missing[na_ind])
+
             if loss == 'RMSE':
-                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+                losses.append(np.sqrt(((target_values - predictions)**2).mean()))
             elif loss == 'MAE':
-                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+                losses.append(np.abs(target_values - predictions).mean())
+            elif loss =='all':
+                multi_loss_dict = calculate_losses(target_values, predictions)
+                losses.append(multi_loss_dict)
         return losses
 
 def next_batch(data,batch_size):
