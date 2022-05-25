@@ -52,6 +52,7 @@ def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=N
     return results
 
 def get_scaled_data(return_scaler=False, put_nans_back=False):
+    running_dir = os.getcwd()
     for _ in range(3):
         if os.getcwd().split('/')[-1] == 'BetaVAEImputation':
             break
@@ -68,6 +69,7 @@ def get_scaled_data(return_scaler=False, put_nans_back=False):
     data_missing = sc.transform(data_missing)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
+    os.chdir(running_dir)
     if put_nans_back:
         data_missing[na_ind] = np.nan
     if return_scaler:
