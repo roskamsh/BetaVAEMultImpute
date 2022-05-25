@@ -6,6 +6,9 @@ import pickle
 import numpy as np
 import random
 import tensorflow as tf
+import argparse
+
+print("current working directory", os.getcwd())
 try:
     print(tf.config.list_physical_devices())
 except:
@@ -14,6 +17,11 @@ import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--nextflow', default = 'no', type=str, help='yes/no if you are running nextflow workflow or not')
+
+args = parser.parse_args()
+print("Nextflow pipeline?", args.nextflow)
 from lib.helper_functions import get_scaled_data
 
 model_settings = \
@@ -386,15 +394,21 @@ class VariationalAutoencoderV2(tf.keras.Model):
             print("Please choose a convergence method from either pseudo-Gibbs, Metropolis-within-Gibbs or importance sampling")
 
 
-    def save(self, save_dir):
-        os.mkdir(save_dir)
-        model_settings_path = os.path.join(save_dir, 'model_settings.json')
-        with open(model_settings_path, 'w') as f:
-            json.dump(model_settings, f)
-        encoder_path = os.path.join(save_dir, 'encoder.keras')
-        decoder_path = os.path.join(save_dir, 'decoder.keras')
-        self.encoder.save(encoder_path)
-        self.decoder.save(decoder_path)
+    def save(self, save_dir, nextflow=False):
+        if nextflow == True:
+            with open('model_settings.json', 'w') as f:
+                json.dump(model_settings, f)
+            self.encoder.save('encoder.keras')
+            self.encoder.save('decoder.keras')
+        else:
+            os.makedirs(save_dir,exist_ok=True)
+            model_settings_path = os.path.join(save_dir, 'model_settings.json')
+            with open(model_settings_path, 'w') as f:
+                json.dump(model_settings, f)
+            encoder_path = os.path.join(save_dir, 'encoder.keras')
+            decoder_path = os.path.join(save_dir, 'decoder.keras')
+            self.encoder.save(encoder_path)
+            self.decoder.save(decoder_path)
 
 def load_model(model_dir=None):
     encoder_path = os.path.join(model_dir, 'encoder.keras')
@@ -416,18 +430,26 @@ if __name__=="__main__":
         print(logical_devices)
     except:
         pass
+    args = parser.parse_args()
     model_save_load_folder = 'output/model1'
-    load_pretrained = True
+    load_pretrained = False
     data, data_missing = get_scaled_data()
     n_row = data.shape[1]
     model_settings['n_input']=n_row  # data input size
     if load_pretrained:
         vae = load_model(model_dir=model_save_load_folder)
     else:
-        model_settings['beta'] = 12
+        model_settings['beta'] = 2.5
         vae = VariationalAutoencoderV2(model_settings=model_settings)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=2, batch_size=256) #  callbacks=[tensorboard_callback]
-    vae.save(model_save_load_folder)
-    with open(os.path.join(model_save_load_folder,'train_history.pickle'), 'wb') as file_handle:
-        pickle.dump(history.history, file_handle)
+    history = vae.fit(x=data_missing, y=data_missing, epochs=250, batch_size=256) #  callbacks=[tensorboard_callback]
+    print("current working directory:", os.getcwd())
+    print("saving output to:", model_save_load_folder)
+    if args.nextflow == 'yes':
+        vae.save(model_save_load_folder, nextflow=True)
+        with open('train_history.pickle', 'wb') as file_handle:
+            pickle.dump(history.history, file_handle)
+    else:
+        vae.save(model_save_load_folder)
+        with open(os.path.join(model_save_load_folder,'train_history.pickle'), 'wb') as file_handle:
+            pickle.dump(history.history, file_handle)
