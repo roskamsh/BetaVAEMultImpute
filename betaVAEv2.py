@@ -8,7 +8,6 @@ import random
 import tensorflow as tf
 import argparse
 
-print("current working directory", os.getcwd())
 try:
     print(tf.config.list_physical_devices())
 except:
@@ -19,10 +18,13 @@ from sklearn.metrics import r2_score
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nextflow', default = 'no', type=str, help='yes/no if you are running nextflow workflow or not')
+parser.add_argument('--model', default = 'encoder.keras', type=str, help='path to encoder.keras')
 
 args = parser.parse_args()
-print("Nextflow pipeline?", args.nextflow)
-from lib.helper_functions import get_scaled_data
+try:
+    from lib.helper_functions import get_scaled_data
+except ModuleNotFoundError:
+    from helper_functions import get_scaled_data
 
 model_settings = \
     dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
@@ -399,7 +401,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             with open('model_settings.json', 'w') as f:
                 json.dump(model_settings, f)
             self.encoder.save('encoder.keras')
-            self.encoder.save('decoder.keras')
+            self.decoder.save('decoder.keras')
         else:
             os.makedirs(save_dir,exist_ok=True)
             model_settings_path = os.path.join(save_dir, 'model_settings.json')
@@ -442,7 +444,7 @@ if __name__=="__main__":
         model_settings['beta'] = 2.5
         vae = VariationalAutoencoderV2(model_settings=model_settings)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=250, batch_size=256) #  callbacks=[tensorboard_callback]
+    history = vae.fit(x=data_missing, y=data_missing, epochs=10, batch_size=256) #  callbacks=[tensorboard_callback]
     print("current working directory:", os.getcwd())
     print("saving output to:", model_save_load_folder)
     if args.nextflow == 'yes':
