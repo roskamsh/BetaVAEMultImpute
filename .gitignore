@@ -8,6 +8,7 @@ data/*
 logs/*
 output/*
 .nextflow*
+*work/*
 .idea/
 venv/
 top_up_train_saved_model.py
