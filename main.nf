@@ -5,6 +5,7 @@ nextflow.enable.dsl=2
  */
 params.betaVAE_script = "$projectDir/betaVAEv2.py"
 params.eval_sing_script = "$projectDir/nf_scripts/evaluate_single_imputation_eddie.py"
+params.eval_mg_script = "$projectDir/nf_scripts/evaluate_metropolis_gibbs_eddie.py"
 params.configfile = "$projectDir/example_config_VAE.json"
 params.lib_helper = "$projectDir/lib/helper_functions.py"
 
@@ -26,8 +27,11 @@ corrupt_data_ch = channel.fromPath(params.corrupt_data)
 betaVAE_ch = channel.fromPath(params.betaVAE_script)
 helper_ch = channel.fromPath(params.lib_helper)
 eval_sing_ch = channel.fromPath(params.eval_sing_script)
+eval_mg_ch = channel.fromPath(params.eval_mg_script)
 // config
 config_ch = channel.fromPath(params.configfile)
+// number of datasets
+m_ch = Channel.of(1..40)
 
 /*
  * train model
@@ -77,10 +81,34 @@ process SINGLE_IMPUTATION {
     """
 }
 
+process IMPUTE_MULTIPLE_MG {
+    publishDir "${params.outdir}/multiple_imputation/metropolis-within-gibbs", mode: "copy"
+
+    input:
+    file betaVAE
+    file script
+    file helper
+    file config
+    file encoder
+    file decoder
+    file model_settings
+    val dataset
+
+    output:
+    path("loglikelihood_across_iterations_plaus_dataset_${dataset}.csv"), emit: loglik
+    path("NA_imputed_values_plaus_dataset_${dataset}.csv"), emit: NAvals
+    path("plaus_dataset_${dataset}.csv"), emit: dataset
+
+    script:
+    """
+    python $script --model $encoder --dataset $dataset
+    """
+}
+
 workflow {
   model=TRAIN_VAE(betaVAE_ch, helper_ch, config_ch)
-  model.encoder.view()
   single_imp=SINGLE_IMPUTATION(model.betaVAE, eval_sing_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings)
+  mult_mg=IMPUTE_MULTIPLE_MG(model.betaVAE, eval_mg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
 
 }
 
