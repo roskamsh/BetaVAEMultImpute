@@ -4,19 +4,22 @@ import pandas as pd
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import numpy as np
 import pickle
+import sys
 import matplotlib.pyplot as plt
-from betaVAEv2 import load_model
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+running_dir = os.getcwd()
+# Add scripts in curent working directory to sys environment
+sys.path.append(running_dir)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--model', default = 'output/model1/encoder.keras', type=str, help='directory which contains the trained VAE')
+from betaVAEv2 import load_model
+try:
+    from lib.helper_functions import get_scaled_data, evaluate_coverage
+except ModuleNotFoundError:
+    from helper_functions import get_scaled_data, evaluate_coverage
 
 if __name__=="__main__":
 
     outname = 'single_imputed_dataset'
-    print(outname)
-    args = parser.parse_args()
-    model_dir = '/'.join(args.model.split('/')[:-1]) + '/'
+    model_dir = running_dir
     model = load_model(model_dir)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     np.isnan(data_missing).any(axis=0)
@@ -24,7 +27,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
-    missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, beta = 12, n_recycles=1000)
+    missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=1000)
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)
