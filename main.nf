@@ -24,8 +24,8 @@ println """\
 data_ch = channel.fromPath(params.data)
 corrupt_data_ch = channel.fromPath(params.corrupt_data)
 // scripts
-betaVAE_ch = channel.fromPath(params.betaVAE_script)
-helper_ch = channel.fromPath(params.lib_helper)
+betaVAE_ch = channel.fromPath(params.betaVAE_script, checkIfExists: true)
+helper_ch = channel.fromPath(params.lib_helper, checkIfExists: true)
 eval_sing_ch = channel.fromPath(params.eval_sing_script)
 eval_mg_ch = channel.fromPath(params.eval_mg_script)
 // config
@@ -40,11 +40,13 @@ m_ch = Channel.of(1..40)
 
 process TRAIN_VAE {
     publishDir "${params.outdir}/model", mode: "copy"
+    cpus 1
+    memory '32 GB'
 
     input:
-    file script
-    file helper
-    file config
+    path script
+    path helper
+    path config
 
     output:
     path('encoder.keras'), emit: encoder
@@ -60,6 +62,8 @@ process TRAIN_VAE {
 
 process SINGLE_IMPUTATION {
     publishDir "${params.outdir}/single_imputation", mode: "copy"
+    cpus 1
+    memory '32 GB'
 
     input:
     file betaVAE
@@ -83,6 +87,8 @@ process SINGLE_IMPUTATION {
 
 process IMPUTE_MULTIPLE_MG {
     publishDir "${params.outdir}/multiple_imputation/metropolis-within-gibbs", mode: "copy"
+    cpus 1
+    memory '32 GB'
 
     input:
     file betaVAE
