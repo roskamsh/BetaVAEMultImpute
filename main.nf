@@ -92,7 +92,7 @@ process IMPUTE_MULTIPLE_MG {
     file encoder
     file decoder
     file model_settings
-    val dataset
+    each dataset
 
     output:
     path("loglikelihood_across_iterations_plaus_dataset_${dataset}.csv"), emit: loglik
