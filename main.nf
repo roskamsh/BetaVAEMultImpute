@@ -6,6 +6,8 @@ nextflow.enable.dsl=2
 params.betaVAE_script = "$projectDir/betaVAEv2.py"
 params.eval_sing_script = "$projectDir/nf_scripts/evaluate_single_imputation_eddie.py"
 params.eval_mg_script = "$projectDir/nf_scripts/evaluate_metropolis_gibbs_eddie.py"
+params.eval_pg_script = "$projectDir/nf_scripts/evaluate_pseudo_Gibbs_eddie.py"
+params.eval_is_script = "$projectDir/nf_scripts/evaluate_importance_sampling_eddie.py"
 params.configfile = "$projectDir/example_config_VAE.json"
 params.lib_helper = "$projectDir/lib/helper_functions.py"
 
@@ -28,6 +30,8 @@ betaVAE_ch = channel.fromPath(params.betaVAE_script, checkIfExists: true)
 helper_ch = channel.fromPath(params.lib_helper, checkIfExists: true)
 eval_sing_ch = channel.fromPath(params.eval_sing_script)
 eval_mg_ch = channel.fromPath(params.eval_mg_script)
+eval_pg_ch = channel.fromPath(params.eval_pg_script)
+eval_is_ch = channel.fromPath(params.eval_is_script)
 // config
 config_ch = channel.fromPath(params.configfile)
 // number of datasets
@@ -66,18 +70,18 @@ process SINGLE_IMPUTATION {
     memory '32 GB'
 
     input:
-    file betaVAE
-    file script
-    file helper
-    file config
-    file encoder
-    file decoder
-    file model_settings
+    path betaVAE
+    path script
+    path helper
+    path config
+    path encoder
+    path decoder
+    path model_settings
 
     output:
-    file 'NA_imputed_values_single_imputed_dataset.csv'
-    file 'single_imputed_dataset.csv'
-    file 'loglikelihood_across_iterations_single_imputed_dataset.csv'
+    path 'NA_imputed_values_single_imputed_dataset.csv'
+    path 'single_imputed_dataset.csv'
+    path 'loglikelihood_across_iterations_single_imputed_dataset.csv'
 
     script:
     """
@@ -91,19 +95,19 @@ process IMPUTE_MULTIPLE_MG {
     memory '32 GB'
 
     input:
-    file betaVAE
-    file script
-    file helper
-    file config
-    file encoder
-    file decoder
-    file model_settings
+    path betaVAE
+    path script
+    path helper
+    path config
+    path encoder
+    path decoder
+    path model_settings
     each dataset
 
     output:
-    path("loglikelihood_across_iterations_plaus_dataset_${dataset}.csv"), emit: loglik
-    path("NA_imputed_values_plaus_dataset_${dataset}.csv"), emit: NAvals
-    path("plaus_dataset_${dataset}.csv"), emit: dataset
+    tuple val('metropolis-within-gibbs'), path("loglikelihood_across_iterations_plaus_dataset_${dataset}.csv"), emit: loglik
+    tuple val('metropolis-within-gibbs'), path("NA_imputed_values_plaus_dataset_${dataset}.csv"), emit: NAvals
+    tuple val('metropolis-within-gibbs'), path("plaus_dataset_${dataset}.csv"), emit: dataset
 
     script:
     """
@@ -111,11 +115,121 @@ process IMPUTE_MULTIPLE_MG {
     """
 }
 
+process IMPUTE_MULTIPLE_pG {
+    publishDir "${params.outdir}/multiple_imputation/pseudo-gibbs", mode: "copy"
+    cpus 1
+    memory '32 GB'
+
+    input:
+    path betaVAE
+    path script
+    path helper
+    path config
+    path encoder
+    path decoder
+    path model_settings
+    each dataset
+
+    output:
+    tuple val('pseudo-gibbs'), path("loglikelihood_across_iterations_plaus_dataset_${dataset}.csv"), emit: loglik
+    tuple val('pseudo-gibbs'), path("NA_imputed_values_plaus_dataset_${dataset}.csv"), emit: NAvals
+    tuple val('pseudo-gibbs'), path("plaus_dataset_${dataset}.csv"), emit: dataset
+
+    script:
+    """
+    python $script --model $encoder --dataset $dataset
+    """
+}
+
+process IMPUTE_MULTIPLE_iS {
+    publishDir "${params.outdir}/multiple_imputation/importance-sampling", mode: "copy"
+    cpus 1
+    memory '32 GB'
+
+    input:
+    path betaVAE
+    path script
+    path helper
+    path config
+    path encoder
+    path decoder
+    path model_settings
+    val num_datasets
+
+    output:
+    path('importance_sampling_ESS.csv'), emit: ess
+    tuple val('importance-sampling'), path('NA_imputed_values_plaus_dataset_*.csv'), emit: NAvals
+    tuple val('importance-sampling'), path('plaus_dataset_*.csv'), emit: dataset
+
+    script:
+    """
+    python $script --model $encoder --nDat $num_datasets
+    """    
+}
+
+
+process COMPILE_NA_INDICES {
+    publishDir "${params.outdir}/multiple_imputation/${imputation}", mode: "copy"
+    cpus 1 
+    memory '32 GB'
+
+    input:
+    tuple val(imputation), path(na_indices)
+
+    output:
+    path("${imputation}_compiled_NA_indices.csv")
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+    
+    print("${imputation}")
+    files <- list.files()
+    files <- files[grep("NA",files)]
+    files <- files[!(files %in% "compiled_NA_indices.csv")]
+    
+    for (i in 1:length(files)) {
+        df <- read.csv(files[i], row.names = 1, stringsAsFactors = F)
+        print(paste("reading in file number", i))
+        if (i == 1) {
+            final <- df
+        } else {
+            datname <- colnames(df)[2]
+            final <- data.frame(final, df[,2])
+            colnames(final)[i+1] <- datname
+        }
+    }
+    
+    outname = paste0("${imputation}", '_compiled_NA_indices.csv')
+    write.csv(final, outname, row.names = F)
+    """
+}
+
+
 workflow {
+  // number of datasets as single value for importance samping process
+  m_dat=m_ch.count()
+
+  // train VAE
   model=TRAIN_VAE(betaVAE_ch, helper_ch, config_ch)
+
+  // run imputation strategies
   single_imp=SINGLE_IMPUTATION(model.betaVAE, eval_sing_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings)
   mult_mg=IMPUTE_MULTIPLE_MG(model.betaVAE, eval_mg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
+  mult_pg=IMPUTE_MULTIPLE_pG(model.betaVAE, eval_pg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
+  mult_is=IMPUTE_MULTIPLE_iS(model.betaVAE, eval_is_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_dat)
+  
+  // channel with all NAvals files for each imputation strategy, 1 emission per strategy
+  NAvals_ch = mult_mg.NAvals
+                 .mix(mult_pg.NAvals)
+                 .mix(mult_is.NAvals)
+                 .groupTuple()
+                 .map {
+                     group, files ->
+                     [group, files.flatten()]
+                 }
 
+  COMPILE_NA_INDICES(NAvals_ch)
 }
 
 
