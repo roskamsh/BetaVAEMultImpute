@@ -177,7 +177,7 @@ process COMPILE_NA_INDICES {
     tuple val(imputation), path(na_indices)
 
     output:
-    path("${imputation}_compiled_NA_indices.csv")
+    tuple val(imputation), path("${imputation}_compiled_NA_indices.csv")
 
     script:
     """
@@ -205,31 +205,92 @@ process COMPILE_NA_INDICES {
     """
 }
 
+process COMPUTE_CIs {
+    publishDir "${params.outdir}/multiple_imputation", mode: "copy"
+    cpus 1
+    memory '32 GB'
+
+    input:
+    tuple val(imputation), path(na_indices)
+
+    output:
+    path("${imputation}_stats.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import os
+    import pickle
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import json
+
+    from sklearn.preprocessing import StandardScaler
+
+    res = pd.read_csv("${na_indices}").values
+
+    # Assign first column of values to new variable and then remove it from res
+    truevals = res[:,0]
+    impvals = res[:,1:]
+
+    means = np.mean(impvals, axis=1)
+    st_devs = np.std(impvals, axis=1)
+    differences = np.abs(truevals - means)
+    n_deviations = differences / st_devs
+    ci_90 = 1.645
+    ci_95 = 1.960
+    ci_99 = 2.576
+    prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
+    prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
+    prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
+    print('prop 90:', prop_90)
+    print('prop 95:', prop_95)
+    print('prop 99:', prop_99)
+
+    differences = np.abs(truevals - means)
+    mae = np.mean(differences)
+    print('average absolute error:', mae)
+
+    res = ["${imputation}", mae, prop_90, prop_95, prop_99]
+
+    # Make pandas dataframe
+    out_table = pd.DataFrame(res, index = ["imputation_strategy","MAE","ci_90","ci_95","ci_99"])
+
+    # export table
+    out_table.to_csv("${imputation}_stats.csv", header = False)
+    """
+}
 
 workflow {
-  // number of datasets as single value for importance samping process
-  m_dat=m_ch.count()
+    include { COMPILE_NA_INDICES; COMPUTE_CIs } from './modules/compile_stats.nf'
 
-  // train VAE
-  model=TRAIN_VAE(betaVAE_ch, helper_ch, config_ch)
+    // number of datasets as single value for importance samping process
+    m_dat=m_ch.count()
 
-  // run imputation strategies
-  single_imp=SINGLE_IMPUTATION(model.betaVAE, eval_sing_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings)
-  mult_mg=IMPUTE_MULTIPLE_MG(model.betaVAE, eval_mg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
-  mult_pg=IMPUTE_MULTIPLE_pG(model.betaVAE, eval_pg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
-  mult_is=IMPUTE_MULTIPLE_iS(model.betaVAE, eval_is_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_dat)
+    // train VAE
+    model=TRAIN_VAE(betaVAE_ch, helper_ch, config_ch)
+
+    // run imputation strategies
+    single_imp=SINGLE_IMPUTATION(model.betaVAE, eval_sing_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings)
+    mult_mg=IMPUTE_MULTIPLE_MG(model.betaVAE, eval_mg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
+    mult_pg=IMPUTE_MULTIPLE_pG(model.betaVAE, eval_pg_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_ch)
+    mult_is=IMPUTE_MULTIPLE_iS(model.betaVAE, eval_is_ch, helper_ch, config_ch, model.encoder, model.decoder, model.model_settings, m_dat)
   
-  // channel with all NAvals files for each imputation strategy, 1 emission per strategy
-  NAvals_ch = mult_mg.NAvals
-                 .mix(mult_pg.NAvals)
-                 .mix(mult_is.NAvals)
-                 .groupTuple()
-                 .map {
-                     group, files ->
-                     [group, files.flatten()]
-                 }
+    // channel with all NAvals files for each imputation strategy, 1 emission per strategy
+    NAvals_ch = mult_mg.NAvals
+                   .mix(mult_pg.NAvals)
+                   .mix(mult_is.NAvals)
+                   .groupTuple()
+                   .map {
+                       group, files ->
+                       [group, files.flatten()]
+                   }
 
-  COMPILE_NA_INDICES(NAvals_ch)
+    comp_na=COMPILE_NA_INDICES(NAvals_ch)
+
+    COMPUTE_CIs(comp_na)
 }
 
 
