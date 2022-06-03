@@ -79,9 +79,9 @@ process SINGLE_IMPUTATION {
     path model_settings
 
     output:
-    path 'NA_imputed_values_single_imputed_dataset.csv'
-    path 'single_imputed_dataset.csv'
-    path 'loglikelihood_across_iterations_single_imputed_dataset.csv'
+    tuple val('single-imputation'), path('NA_imputed_values_single_imputed_dataset.csv'), emit: NAvals
+    tuple val('single-imputation'), path('single_imputed_dataset.csv'), emit: dataset
+    tuple val('single-imputatuion'), path('loglikelihood_across_iterations_single_imputed_dataset.csv'), emit: loglik
 
     script:
     """
@@ -167,9 +167,11 @@ process IMPUTE_MULTIPLE_iS {
     """    
 }
 
+
 // main workflow
 workflow {
     include { COMPILE_NA_INDICES; COMPUTE_CIs } from './modules/compile_stats.nf'
+    include { LASSO } from './modules/downstream.nf'
 
     // number of datasets as single value for importance samping process
     m_dat=m_ch.count()
@@ -196,6 +198,32 @@ workflow {
     comp_na=COMPILE_NA_INDICES(NAvals_ch)
 
     COMPUTE_CIs(comp_na)
+
+    // channel with all plausible datasets and imputation key
+    all_dats=single_imp.dataset
+                  .mix(mult_pg.dataset)
+                  .mix(mult_pg.dataset)
+                  .mix(mult_is.dataset)
+    // importance sampling output looks different than the other two so need to reformat
+    mult_is.dataset
+             .multiMap {
+                group, files -> 
+                  key: [group]
+                  files: files.flatten()
+             }
+             .set {split_is_out}
+    // re-combine the split up channels so you have key, file as a unique emission per dataset
+    mult_dat_flat = split_is_out.key.combine(split_is_out.files.flatten())
+
+    // channel with all plausible datasets and imputation key
+    imp_dats=single_imp.dataset
+                  .mix(mult_pg.dataset)
+                  .mix(mult_pg.dataset)
+                  .mix(mult_dat_flat)
+                  .combine(corrupt_data_ch)
+                  .combine(data_ch)
+  
+    LASSO(imp_dats)
 }
 
 
