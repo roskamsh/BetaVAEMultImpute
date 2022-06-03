@@ -199,11 +199,7 @@ workflow {
 
     COMPUTE_CIs(comp_na)
 
-    // channel with all plausible datasets and imputation key
-    all_dats=single_imp.dataset
-                  .mix(mult_pg.dataset)
-                  .mix(mult_pg.dataset)
-                  .mix(mult_is.dataset)
+    // configure channel with all plausible datasets and imputation key
     // importance sampling output looks different than the other two so need to reformat
     mult_is.dataset
              .multiMap {
