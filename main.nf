@@ -23,19 +23,19 @@ println """\
 
 // define input channels
 // data
-data_ch = channel.fromPath(params.data)
-corrupt_data_ch = channel.fromPath(params.corrupt_data)
+data_ch = channel.fromPath(params.data, checkIfExists: true)
+corrupt_data_ch = channel.fromPath(params.corrupt_data, checkIfExists: true)
 // scripts
 betaVAE_ch = channel.fromPath(params.betaVAE_script, checkIfExists: true)
 helper_ch = channel.fromPath(params.lib_helper, checkIfExists: true)
-eval_sing_ch = channel.fromPath(params.eval_sing_script)
-eval_mg_ch = channel.fromPath(params.eval_mg_script)
-eval_pg_ch = channel.fromPath(params.eval_pg_script)
-eval_is_ch = channel.fromPath(params.eval_is_script)
+eval_sing_ch = channel.fromPath(params.eval_sing_script, checkIfExists: true)
+eval_mg_ch = channel.fromPath(params.eval_mg_script, checkIfExists: true)
+eval_pg_ch = channel.fromPath(params.eval_pg_script, checkIfExists: true)
+eval_is_ch = channel.fromPath(params.eval_is_script, checkIfExists: true)
 // config
 config_ch = channel.fromPath(params.configfile)
 // number of datasets
-m_ch = Channel.of(1..40)
+m_ch = Channel.of(1..100)
 
 /*
  * train model
