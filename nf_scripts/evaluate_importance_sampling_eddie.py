@@ -26,7 +26,7 @@ if __name__=="__main__":
     # initialize input and set parameters for imputation
     model_dir = running_dir
     model = load_model(model_dir)
-    max_iter = 3
+    max_iter = 1000
     m_datasets = args.nDat
 
     model = load_model(model_dir)
