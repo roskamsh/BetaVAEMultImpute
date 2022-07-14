@@ -52,6 +52,7 @@ def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=N
     return results
 
 def get_scaled_data(return_scaler=False, put_nans_back=False):
+    running_dir = os.getcwd()
     for _ in range(3):
         if os.getcwd().split('/')[-1] == 'BetaVAEImputation':
             break
@@ -68,6 +69,7 @@ def get_scaled_data(return_scaler=False, put_nans_back=False):
     data_missing = sc.transform(data_missing)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
+    os.chdir(running_dir)
     if put_nans_back:
         data_missing[na_ind] = np.nan
     if return_scaler:
@@ -93,43 +95,6 @@ def apply_scaler(data, data_missing, return_scaler=False):
     else:
         return data, data_missing
 
-def load_saved_model(config_path = 'JW_config_VAE.json'):
-    from autoencodersbetaVAE import VariationalAutoencoder
-    n_col = 17175
-    running_directory = os.getcwd()
-    if running_directory.split('/')[-1] != 'BetaVAEImputation':
-        os.chdir('..')
-    with open(config_path) as f:
-        config = json.load(f)
-    training_epochs = config["training_epochs"]  # 250
-    batch_size = config["batch_size"]  # 250
-    learning_rate = config["learning_rate"]  # 0.0005
-    latent_size = config["latent_size"]  # 200
-    hidden_size_1 = config["hidden_size_1"]
-    hidden_size_2 = config["hidden_size_2"]
-    restore_root = config["save_rootpath"]
-    beta = config["beta"]
-    Decoder_hidden1 = hidden_size_1  # 6000
-    Decoder_hidden2 = hidden_size_2  # 2000
-    Encoder_hidden1 = hidden_size_2  # 2000
-    Encoder_hidden2 = hidden_size_1  # 6000
-
-    network_architecture = \
-        dict(n_hidden_recog_1=Encoder_hidden1,  # 1st layer encoder neurons
-             n_hidden_recog_2=Encoder_hidden2,  # 2nd layer encoder neurons
-             n_hidden_gener_1=Decoder_hidden1,  # 1st layer decoder neurons
-             n_hidden_gener_2=Decoder_hidden2,  # 2nd layer decoder neurons
-             n_input=n_col,  # data input size
-             n_z=latent_size)  # dimensionality of latent space
-
-    rp = restore_root + "ep" + str(training_epochs) + "_bs" + str(batch_size) + "_lr" + str(
-        learning_rate) + "_bn" + str(latent_size) + "_opADAM" + "_beta" + str(beta) + "_betaVAE" + ".ckpt"
-    print("restore path: ", rp)
-    vae = VariationalAutoencoder(network_architecture,
-                                 learning_rate=learning_rate,
-                                 batch_size=batch_size, istrain=False, restore_path=rp, beta=beta)
-    os.chdir(running_directory)
-    return vae
 
 class DataMissingMaker:
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):

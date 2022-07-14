@@ -71,5 +71,6 @@ if __name__=="__main__":
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, beta, results_path='beta_analysis4.csv')
         remove_lock()
+        model.save(f'beta_{beta}_model')
 
 
