@@ -3,6 +3,8 @@ setwd('/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/outpu
 
 files <- list.files()
 files <- files[grep("NA",files)]
+files <- files[!(files %in% "compiled_NA_indices.csv")]
+files <- files[!(files %in% "compiled_NA_indices_beta_likelihood.csv")]
 
 for (i in 1:length(files)) {
     df <- read.csv(files[i], row.names = 1, stringsAsFactors = F)
