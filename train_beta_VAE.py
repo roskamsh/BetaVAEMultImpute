@@ -88,7 +88,10 @@ if __name__ == '__main__':
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=True,restore_path=None,
                                      beta=beta)
-        
+       
+        print("Training VAE...")
+        print("Training epochs:", training_epochs, "batch size:", batch_size, "learning rate:", learning_rate, "beta:", beta, "corrupt data path:", corrupt_data_path)
+ 
         # train VAE on corrupted data:
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
