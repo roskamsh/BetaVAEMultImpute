@@ -38,7 +38,7 @@ if __name__=="__main__":
         d_index = int(args[1]) -1
     except:
         print('index for experiment not passed using default')
-        d_index = 0
+        d_index = 6
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     missing_props = [(1, 0.3), (1, 0.2), (1, 0.1), (0.75, 0.1), (0.5, 0.1), (0.25, 0.1)]
     prop_miss_rows, prop_miss_col,  = missing_props[d_index]

@@ -34,6 +34,7 @@ def get_additional_masked_data(complete_w_nan, prop_miss_rows=1, prop_miss_col=0
     complete_only = complete_w_nan[complete_row_index]
     miss_maker = DataMissingMaker(complete_only, prop_miss_rows=prop_miss_rows, prop_miss_col=prop_miss_col)
     extra_missing_validation =  miss_maker.generate_missing_data()
+    # assert np.isnan(extra_missing_validation, axis=0)
     val_na_ind = np.where(np.isnan(extra_missing_validation))
     return extra_missing_validation, complete_only, val_na_ind
 

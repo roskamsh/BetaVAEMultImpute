@@ -28,9 +28,11 @@ def evaluate_variance(model, missing_w_nans, na_ind):
 def generate_multiple_and_evaluate_coverage(model, missing_w_nans, missing_complete, na_ind, scaler):
     multi_imputes_missing =[]
     m_datasets = 30
+    missing_row_ind = np.where(np.isnan(missing_w_nans).any(axis=1))
+    subset_na = np.where(np.isnan(missing_w_nans[missing_row_ind]))
     for i in range(m_datasets):
         missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=25, method = "Metropolis-within-Gibbs")
-        multi_imputes_missing.append(missing_imputed[na_ind])
+        multi_imputes_missing.append(missing_imputed[subset_na])
     results  = evaluate_coverage(multi_imputes_missing, missing_complete, missing_w_nans, scaler)
     return results
 
