@@ -10,7 +10,7 @@ try:
     sys.path.append('/home/jwells/BetaVAEImputation')
 except:
     pass
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+from lib.helper_functions import get_scaled_data, evaluate_coverage, evaluate_coverage_quantile
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 def create_lock(path='lock.txt'):
@@ -25,20 +25,22 @@ def evaluate_variance(model, missing_w_nans, na_ind):
     x_hat_mean, x_hat_log_sigma_sq = model.predict(missing_w_zeros)
     return np.mean(x_hat_log_sigma_sq.numpy()[na_ind])
 
-def generate_multiple_and_evaluate_coverage(model, missing_w_nans, missing_complete, na_ind, scaler):
+def generate_multiple_and_evaluate_coverage(model, missing_w_nans, missing_complete, na_ind, scaler, recycles, m):
     multi_imputes_missing =[]
-    m_datasets = 30
+    m_datasets = m
     missing_row_ind = np.where(np.isnan(missing_w_nans).any(axis=1))
     subset_na = np.where(np.isnan(missing_w_nans[missing_row_ind]))
     for i in range(m_datasets):
-        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=25, method = "Metropolis-within-Gibbs")
+        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=recycles, method = "Metropolis-within-Gibbs")
         multi_imputes_missing.append(missing_imputed[subset_na])
+    results_quantile = evaluate_coverage_quantile(multi_imputes_missing, missing_complete, missing_w_nans, scaler)
     results  = evaluate_coverage(multi_imputes_missing, missing_complete, missing_w_nans, scaler)
+    results.update(results_quantile)
     return results
 
 
-def evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler):
-    coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), missing_complete, na_ind, scaler)
+def evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler, recycles, m):
+    coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), missing_complete, na_ind, scaler, recycles, m)
     _, _, all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler, return_losses=True)
     results = dict(
     mae = all_mae[-1],

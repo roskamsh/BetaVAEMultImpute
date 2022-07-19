@@ -15,27 +15,44 @@ data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
+def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
+    na_ind = np.where(np.isnan(data_missing))
+    true_values = data[na_ind]
+    low_q80 = np.percentile(multi_imputes, 10, axis=0)
+    up_q80 = np.percentile( multi_imputes,90, axis=0)
+    low_q90 = np.percentile( multi_imputes,5, axis=0)
+    up_q90 = np.percentile( multi_imputes,95, axis=0)
+    low_q95 = np.percentile(multi_imputes,2.5,  axis=0)
+    up_q95 = np.percentile(multi_imputes,97.5,  axis=0)
+    low_q99 = np.percentile( multi_imputes,0.5, axis=0)
+    up_q99 = np.percentile( multi_imputes,99.5, axis=0)
+    results = {
+        'prop_80q': np.array([low_q80[i] < true_values[i] < up_q80[i] for i in range(len(true_values))]).mean(),
+        'prop_90q': np.array([low_q90[i] < true_values[i] < up_q90[i] for i in range(len(true_values))]).mean(),
+        'prop_95q': np.array([low_q95[i] < true_values[i] < up_q95[i] for i in range(len(true_values))]).mean(),
+        'prop_99q': np.array([low_q99[i] < true_values[i] < up_q99[i] for i in range(len(true_values))]).mean(),
+    }
+    return results
 
-def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
+
+
+def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     assert data_missing.shape == data.shape
-    if multi_imputes is None:
-        # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
-        with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
-            multi_imputes = np.array(pickle.load(filehandle))
-    if data is None:
-        data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     na_ind = np.where(np.isnan(data_missing))
     means = np.mean(multi_imputes, axis=0)
     unscaled_st_devs = np.std(multi_imputes, axis=0)
     unscaled_differences = np.abs(data[na_ind] - means)
     n_deviations = unscaled_differences / unscaled_st_devs
+    ci_80 = 1.282
     ci_90 = 1.645
     ci_95 = 1.960
     ci_99 = 2.576
+    prop_80 = sum(n_deviations < ci_80) / len(n_deviations)
     prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
     prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
     prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
     results = {
+        'prop_80': prop_80,
         'prop_90': prop_90,
         'prop_95': prop_95,
         'prop_99': prop_99
