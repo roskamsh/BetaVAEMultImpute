@@ -29,11 +29,12 @@ def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_pa
     df  = df.append(results, ignore_index=True)
     df.to_csv(results_path, index=False)
 
-def get_additional_masked_data(complete_w_nan):
+def get_additional_masked_data(complete_w_nan, prop_miss_rows=1, prop_miss_col=0.1):
     complete_row_index = np.where(np.isfinite(complete_w_nan).all(axis=1))[0]
     complete_only = complete_w_nan[complete_row_index]
-    miss_maker = DataMissingMaker(complete_only)
+    miss_maker = DataMissingMaker(complete_only, prop_miss_rows=prop_miss_rows, prop_miss_col=prop_miss_col)
     extra_missing_validation =  miss_maker.generate_missing_data()
+    # assert np.isnan(extra_missing_validation, axis=0)
     val_na_ind = np.where(np.isnan(extra_missing_validation))
     return extra_missing_validation, complete_only, val_na_ind
 

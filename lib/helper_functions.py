@@ -15,27 +15,44 @@ data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
+def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
+    na_ind = np.where(np.isnan(data_missing))
+    true_values = data[na_ind]
+    low_q80 = np.percentile(multi_imputes, 10, axis=0)
+    up_q80 = np.percentile( multi_imputes,90, axis=0)
+    low_q90 = np.percentile( multi_imputes,5, axis=0)
+    up_q90 = np.percentile( multi_imputes,95, axis=0)
+    low_q95 = np.percentile(multi_imputes,2.5,  axis=0)
+    up_q95 = np.percentile(multi_imputes,97.5,  axis=0)
+    low_q99 = np.percentile( multi_imputes,0.5, axis=0)
+    up_q99 = np.percentile( multi_imputes,99.5, axis=0)
+    results = {
+        'prop_80q': np.array([low_q80[i] < true_values[i] < up_q80[i] for i in range(len(true_values))]).mean(),
+        'prop_90q': np.array([low_q90[i] < true_values[i] < up_q90[i] for i in range(len(true_values))]).mean(),
+        'prop_95q': np.array([low_q95[i] < true_values[i] < up_q95[i] for i in range(len(true_values))]).mean(),
+        'prop_99q': np.array([low_q99[i] < true_values[i] < up_q99[i] for i in range(len(true_values))]).mean(),
+    }
+    return results
 
-def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
+
+
+def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     assert data_missing.shape == data.shape
-    if multi_imputes is None:
-        # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
-        with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
-            multi_imputes = np.array(pickle.load(filehandle))
-    if data is None:
-        data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     na_ind = np.where(np.isnan(data_missing))
     means = np.mean(multi_imputes, axis=0)
     unscaled_st_devs = np.std(multi_imputes, axis=0)
     unscaled_differences = np.abs(data[na_ind] - means)
     n_deviations = unscaled_differences / unscaled_st_devs
+    ci_80 = 1.282
     ci_90 = 1.645
     ci_95 = 1.960
     ci_99 = 2.576
+    prop_80 = sum(n_deviations < ci_80) / len(n_deviations)
     prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
     prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
     prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
     results = {
+        'prop_80': prop_80,
         'prop_90': prop_90,
         'prop_95': prop_95,
         'prop_99': prop_99
@@ -95,43 +112,6 @@ def apply_scaler(data, data_missing, return_scaler=False):
     else:
         return data, data_missing
 
-def load_saved_model(config_path = 'JW_config_VAE.json'):
-    from autoencodersbetaVAE import VariationalAutoencoder
-    n_col = 17175
-    running_directory = os.getcwd()
-    if running_directory.split('/')[-1] != 'BetaVAEImputation':
-        os.chdir('..')
-    with open(config_path) as f:
-        config = json.load(f)
-    training_epochs = config["training_epochs"]  # 250
-    batch_size = config["batch_size"]  # 250
-    learning_rate = config["learning_rate"]  # 0.0005
-    latent_size = config["latent_size"]  # 200
-    hidden_size_1 = config["hidden_size_1"]
-    hidden_size_2 = config["hidden_size_2"]
-    restore_root = config["save_rootpath"]
-    beta = config["beta"]
-    Decoder_hidden1 = hidden_size_1  # 6000
-    Decoder_hidden2 = hidden_size_2  # 2000
-    Encoder_hidden1 = hidden_size_2  # 2000
-    Encoder_hidden2 = hidden_size_1  # 6000
-
-    network_architecture = \
-        dict(n_hidden_recog_1=Encoder_hidden1,  # 1st layer encoder neurons
-             n_hidden_recog_2=Encoder_hidden2,  # 2nd layer encoder neurons
-             n_hidden_gener_1=Decoder_hidden1,  # 1st layer decoder neurons
-             n_hidden_gener_2=Decoder_hidden2,  # 2nd layer decoder neurons
-             n_input=n_col,  # data input size
-             n_z=latent_size)  # dimensionality of latent space
-
-    rp = restore_root + "ep" + str(training_epochs) + "_bs" + str(batch_size) + "_lr" + str(
-        learning_rate) + "_bn" + str(latent_size) + "_opADAM" + "_beta" + str(beta) + "_betaVAE" + ".ckpt"
-    print("restore path: ", rp)
-    vae = VariationalAutoencoder(network_architecture,
-                                 learning_rate=learning_rate,
-                                 batch_size=batch_size, istrain=False, restore_path=rp, beta=beta)
-    os.chdir(running_directory)
-    return vae
 
 class DataMissingMaker:
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):

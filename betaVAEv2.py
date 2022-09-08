@@ -16,13 +16,16 @@ import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--nextflow', default = 'no', type=str, help='yes/no if you are running nextflow workflow or not')
-parser.add_argument('--model', default = 'encoder.keras', type=str, help='path to encoder.keras')
-parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you are generating via MI')
-parser.add_argument('--nDat', type=int, default=1, help='number of datasets to are generating via MI for importance sampling')
-
-args = parser.parse_args()
+try:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nextflow', default='no', type=str, help='yes/no if you are running nextflow workflow or not')
+    parser.add_argument('--model', default='encoder.keras', type=str, help='path to encoder.keras')
+    parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you are generating via MI')
+    parser.add_argument('--nDat', type=int, default=1,
+                        help='number of datasets to are generating via MI for importance sampling')
+    args = parser.parse_args()
+except:
+    pass
 try:
     from lib.helper_functions import get_scaled_data
 except ModuleNotFoundError:
