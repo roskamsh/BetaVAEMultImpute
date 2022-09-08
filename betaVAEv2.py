@@ -443,10 +443,10 @@ if __name__=="__main__":
     if load_pretrained:
         vae = load_model(model_dir=model_save_load_folder)
     else:
-        model_settings['beta'] = 2.5
+        model_settings['beta'] = 2
         vae = VariationalAutoencoderV2(model_settings=model_settings)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=300, batch_size=256) #  callbacks=[tensorboard_callback]
+    history = vae.fit(x=data_missing, y=data_missing, epochs=250, batch_size=256) #  callbacks=[tensorboard_callback]
     print("current working directory:", os.getcwd())
     print("saving output to:", model_save_load_folder)
     if args.nextflow == 'yes':
