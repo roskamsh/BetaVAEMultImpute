@@ -170,8 +170,8 @@ process IMPUTE_MULTIPLE_iS {
 
 // main workflow
 workflow {
-    include { COMPILE_NA_INDICES; COMPUTE_CIs } from './modules/compile_stats.nf'
-    include { LASSO } from './modules/downstream.nf'
+    include { COMPILE_NA_INDICES; COMPUTE_CIs; COMPUTE_PERCENTILES } from './modules/compile_stats.nf'
+    include { LASSO; LASSO_TRUE } from './modules/downstream.nf'
 
     // number of datasets as single value for importance samping process
     m_dat=m_ch.count()
@@ -199,6 +199,9 @@ workflow {
 
     COMPUTE_CIs(comp_na)
 
+    // mix together all imputation NA index results for computing percentiles
+    COMPUTE_PERCENTILES(comp_na) 
+
     // configure channel with all plausible datasets and imputation key
     // importance sampling output looks different than the other two so need to reformat
     mult_is.dataset
@@ -213,13 +216,15 @@ workflow {
 
     // channel with all plausible datasets and imputation key
     imp_dats=single_imp.dataset
-                  .mix(mult_pg.dataset)
+                  .mix(mult_mg.dataset)
                   .mix(mult_pg.dataset)
                   .mix(mult_dat_flat)
                   .combine(corrupt_data_ch)
                   .combine(data_ch)
-  
+
     LASSO(imp_dats)
+
+    LASSO_TRUE(data_ch)
 }
 
 
