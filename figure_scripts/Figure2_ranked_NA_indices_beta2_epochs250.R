@@ -125,7 +125,7 @@ dev.off()
 is_stats <- read.csv("importance-sampling_stats.csv", stringsAsFactors = F)
 mg_stats <- read.csv("metropolis-within-gibbs_stats.csv", stringsAsFactors = F)
 pg_stats <- read.csv("pseudo-gibbs_stats.csv", stringsAsFactors = F)
-singimp_MAE <- 0.3024
+singimp_MAE <- 0.2995
 
 all_stats <- merge(merge(is_stats, mg_stats), pg_stats)
 all_stats_melt <- melt(all_stats, by = "imputation_strategy")

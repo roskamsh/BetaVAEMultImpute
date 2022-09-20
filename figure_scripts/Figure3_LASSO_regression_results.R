@@ -234,6 +234,9 @@ pdf("../../ICLR_paper/figures/inclusion_probability_ranked_plot_importance-sampl
 ggplot(data = coeff_is, mapping = aes(x = gene, y = incl_prob, colour = is_in_true_coeff)) +
   geom_point() +
   theme_bw() +
+  labs(colour="Contained in set \nof true coefficients?") +
+  ylab("Inclusion probability") +
+  xlab("Gene") +
   theme(axis.text.x = element_text(angle = 90, size = 4))
 dev.off()
 
@@ -395,6 +398,9 @@ pdf("../../ICLR_paper/figures/inclusion_probability_ranked_plot_metropolis-withi
 ggplot(data = coeff_mg, mapping = aes(x = gene, y = incl_prob, colour = is_in_true_coeff)) +
   geom_point() +
   theme_bw() +
+  labs(colour="Contained in set \nof true coefficients?") +
+  ylab("Inclusion probability") +
+  xlab("Gene") +
   theme(axis.text.x = element_text(angle = 90, size = 4))
 dev.off()
 
@@ -576,6 +582,9 @@ pdf("../../ICLR_paper/figures/inclusion_probability_ranked_plot_pseudo-gibbs.pdf
 ggplot(data = coeff_pg, mapping = aes(x = gene, y = incl_prob, colour = is_in_true_coeff)) +
   geom_point() +
   theme_bw() +
+  labs(colour="Contained in set \nof true coefficients?") +
+  ylab("Inclusion probability") +
+  xlab("Gene") +
   theme(axis.text.x = element_text(angle = 90, size = 4))
 dev.off()
 
