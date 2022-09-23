@@ -1,0 +1,12 @@
+name: lasso_test
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-data.table=1.14
+  - r-mass=7.3
+  - r-pheatmap=1.0
+  - r-penalized=0.9
+  - r-caret=6.0
+
