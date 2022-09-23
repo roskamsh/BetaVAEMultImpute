@@ -4,6 +4,9 @@ As missing values are frequently present in genomic data, practical methods to h
 
 The scripts contained in this repository can be used to carry out the analysis in “Genomic data imputation with variational autoencoders”. The data used in the manuscript is publicly accessible. Gene expression data is version 2 of the adjusted pan-cancer gene expression data obtained from Synapse: https://www.synapse.org/#!Synapse:syn4976369.2. DNA methylation data is the WGBS data for BLUEPRINT methylomes (2016 release) obtained from rnbeads.org: https://www.rnbeads.org/methylomes.html. Examples of preprocessing the raw data and creating missing value simulations can be found in ./preprocess.
 
+**Build your environment**
+conda env create --file lass_env.yaml
+
 **Imputation**
 
 1. VAE imputation  
