@@ -136,9 +136,3 @@ class DataMissingMaker:
         new_masked_x[null_row_indexes, null_col_indexes] = np.nan
         return new_masked_x
 
-
-
-if __name__=="__main__":
-    evaluate_coverage()
-
-
