@@ -27,7 +27,7 @@ try:
 except:
     pass
 try:
-    from lib.helper_functions import get_scaled_data
+    from bin.helper_functions import get_scaled_data
 except ModuleNotFoundError:
     from helper_functions import get_scaled_data
 
@@ -110,7 +110,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         else:
             return self.create_basic_decoder()
 
-    def create_basic_decoder(self):
+    def create_basic_decoder(self): # TODO remove this basic decoder
         n_hidden_gener_1 = self.model_settings['n_hidden_gener_1']
         n_hidden_gener_2 = self.model_settings['n_hidden_gener_2']
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))

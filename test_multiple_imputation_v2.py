@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
-from lib.helper_functions import get_scaled_data
+from bin.helper_functions import get_scaled_data
 
 def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
     if multi_imputes is None:

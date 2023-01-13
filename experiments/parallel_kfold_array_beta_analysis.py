@@ -7,7 +7,7 @@ import pandas as pd
 from tensorflow import keras
 
 
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+from bin.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
