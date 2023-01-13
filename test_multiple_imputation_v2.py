@@ -8,7 +8,6 @@ from lib.helper_functions import get_scaled_data
 
 def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
     if multi_imputes is None:
-        # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
         with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
             multi_imputes = np.array(pickle.load(filehandle))
     if data is None:
@@ -46,13 +45,11 @@ if __name__=="__main__":
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
-    #multi_imputes = []
-    multi_imputes = model.impute_multiple(data_corrupt=data_missing, max_iter=15, m = m_datasets, method = 'importance sampling2')
-    print("pause here")
-    
+
+    multi_imputes = model.impute_multiple(data_corrupt=data_missing, max_iter=15, m = m_datasets, method = 'importance sampling')
     
     for i in range(m_datasets):
-        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=15, m = m_datasets, method = 'importance sampling2')
+        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=15, m = m_datasets, method = 'importance sampling')
         multi_imputes.append(missing_imputed[na_ind])
     plt.hist(index_changes, bins=133, range=[0,132])
     plt.show()

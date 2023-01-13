@@ -125,7 +125,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def create_probabalistic_decoder(self):
         n_hidden_gener_1 = self.model_settings['n_hidden_gener_1']
-        n_hidden_gener_2 = self.model_settings['n_hidden_gener_2'] # todo: during previous training this value was also n_hidden_gener_1
+        n_hidden_gener_2 = self.model_settings['n_hidden_gener_2']
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -329,7 +329,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                         data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
             return data_miss_val, convergence_loglik
 
-        elif method == "importance sampling2":
+        elif method == "importance sampling":
             n_samp = data_miss_val.shape[0]
             logweights = []
             z_sample_l = []

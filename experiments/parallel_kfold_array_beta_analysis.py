@@ -5,23 +5,31 @@ import numpy as np
 import pandas as pd
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from tensorflow import keras
-try:
-    os.chdir('/home/jwells/BetaVAEImputation')
-    sys.path.append('/home/jwells/BetaVAEImputation')
-except:
-    pass
+
+
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
 from experiments.early_stopping_validation_analysis import get_additional_masked_data
 
+"""
+This script runs cross-validation in order to tune the value of beta and the number of epochs.
+Additional missingness is added to the original data, and the accuracy and uncertainty
+are measured based on how well they reconstruct the missing data that was deliberately introduced.
+The dataset it copied 'k_fold' times so that each of the copies does not have too much missingness
+introduced.
+
+This script is designed for parallelization where each parallel run tests a different value of beta
+the test value of beta is indexed by d_index. 
+"""
+
 def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_path='lock.txt'):
     if not os.path.exists(results_path):
         with open(results_path, 'w') as filehandle:
             filehandle.write('beta,epoch,mae,multi_mae,average_variance,prop_90,prop_95,prop_99\n')
     while os.path.exists(lock_path):
-        print('sleeping due to file lock')
+        print('sleeping due to file lock') # prevent paralel runs from writing to the file at the same time
         time.sleep(2)
     create_lock()
     df = pd.read_csv(results_path)
@@ -33,7 +41,7 @@ def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_pa
 if __name__=="__main__":
     recycles = 10
     m = 100
-    k_folds = 15
+    k_folds = 5
     args = sys.argv
     d_index = int(args[1]) -1
     k = d_index % k_folds
@@ -71,8 +79,6 @@ if __name__=="__main__":
     lr = 0.00001
     model = VariationalAutoencoderV2(model_settings=model_settings)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
-    # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
-    # os.makedirs(model_savepath, exist_ok=True)
     epoch_granularity = {0.1:15, 0.5:20, 1:20, 1.25:20, 1.5:25, 1.75:25, 2:25, 2.5:30, 3:30, 4:30, 5:30, 6:30, 8:30, 12:30, 16:30, 24:30, 32:35, 50:40, 64:50, 100:100, 150:100}
     n_epochs_dict = {0.1: 300, 0.5:300, 1:300, 1.25:300, 1.5:350, 1.75:350, 2:400, 2.5:400, 3:500, 4:800, 5:1000, 6:1200, 8:500, 12:600, 16:650, 24:700, 32:900, 50:1100, 64:1200, 100:1400, 150:1600}
     epochs = epoch_granularity[beta]
@@ -88,7 +94,7 @@ if __name__=="__main__":
         results = evaluate_model(model, validation_w_nan_cp, validation_complete, val_na_ind, scaler, recycles, m)
         completed_epochs = (i + 1) * epochs
         results['k'] = k
-        save_results(results, completed_epochs, beta, results_path='beta_analysis_19_jul.csv')
+        save_results(results, completed_epochs, beta, results_path='beta_analysis.csv')
         remove_lock()
 
 
