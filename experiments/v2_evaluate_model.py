@@ -3,7 +3,7 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import tensorflow as tf
 from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
-from lib.helper_functions import get_scaled_data
+from bin.helper_functions import get_scaled_data
 """
 This model evaluates the model performance using the mean of Z and X and recycling a certain number of times
 """
@@ -22,7 +22,6 @@ def evaluate_model_v2(model):
     data_missing[na_ind] = np.nan
     del data_missing_complete
     losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='all', scaler=sc)
-    bp=True
     return losses
 
 if __name__=="__main__":
@@ -37,4 +36,3 @@ if __name__=="__main__":
 
     model.compile()
     losses = evaluate_model_v2(model)
-    bp=True

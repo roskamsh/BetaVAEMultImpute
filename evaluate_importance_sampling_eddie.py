@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+from bin.helper_functions import get_scaled_data, evaluate_coverage
 
 if __name__=="__main__":
 
@@ -35,7 +35,7 @@ if __name__=="__main__":
     # output will be a list of all m datasets imputed by importance sampling (missing observations only)
     missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=max_iter, 
                                                                 m = m_datasets, beta = 12, 
-                                                                method="importance sampling2")
+                                                                method="importance sampling")
     missing_imputed = np.array(missing_imputed)
 
     # export output of m-th dataset

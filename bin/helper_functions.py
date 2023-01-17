@@ -113,7 +113,7 @@ def apply_scaler(data, data_missing, return_scaler=False):
         return data, data_missing
 
 
-class DataMissingMaker:
+class DataMissingMaker: # TODO remove this unused class
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):
         self.data = complete_only
         self.n_col = self.data.shape[1]
@@ -135,10 +135,4 @@ class DataMissingMaker:
         new_masked_x = np.copy(self.data)
         new_masked_x[null_row_indexes, null_col_indexes] = np.nan
         return new_masked_x
-
-
-
-if __name__=="__main__":
-    evaluate_coverage()
-
 
