@@ -12,7 +12,7 @@ sys.path.append(running_dir)
 # Import modules
 from betaVAEv2 import load_model
 try:
-    from lib.helper_functions import get_scaled_data, evaluate_coverage
+    from bin.helper_functions import get_scaled_data, evaluate_coverage
 except:
     from helper_functions import get_scaled_data, evaluate_coverage
 

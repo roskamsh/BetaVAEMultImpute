@@ -113,7 +113,7 @@ def apply_scaler(data, data_missing, return_scaler=False):
         return data, data_missing
 
 
-class DataMissingMaker:
+class DataMissingMaker: # TODO remove this unused class
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):
         self.data = complete_only
         self.n_col = self.data.shape[1]
