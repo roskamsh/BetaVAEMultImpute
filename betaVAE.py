@@ -73,11 +73,11 @@ class VariationalAutoencoder(tf.keras.Model):
         h1 = tf.keras.layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(encoder_inputs)
         n1 = tf.keras.layers.LayerNormalization(name='norm1')(h1)
         if self.dropout:
-            n1 = tf.keras.layers.Dropout(0.1)(n1)
+            n1 = tf.keras.layers.Dropout(self.dropout_rate)(n1)
         h2 = tf.keras.layers.Dense(units=n_hidden_recog_2, name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization(name='norm2')(h2)
         if self.dropout:
-            n2 = tf.keras.layers.Dropout(0.1)(n2)
+            n2 = tf.keras.layers.Dropout(self.dropout_rate)(n2)
         z_mean = tf.keras.layers.Dense(self.latent_dim, name="z_mean")(n2)
         z_log_var = tf.keras.layers.Dense(self.latent_dim, name="z_log_var")(h2)
         z = Sampling()([z_mean, z_log_var])
@@ -92,11 +92,11 @@ class VariationalAutoencoder(tf.keras.Model):
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
         if self.dropout:
-            n1 = tf.keras.layers.Dropout(0.1)(n1)
+            n1 = tf.keras.layers.Dropout(self.dropout_rate)(n1)
         h2 = tf.keras.layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization()(h2)
         if self.dropout:
-            n2 = tf.keras.layers.Dropout(0.1)(n2)
+            n2 = tf.keras.layers.Dropout(self.dropout_rate)(n2)
         x_hat_mean = tf.keras.layers.Dense(self.n_input_nodes, name='x_hat_mean')(n2)
         x_hat_log_sigma_sq = tf.keras.layers.Dense(self.n_input_nodes, name='x_hat_log_sigma_sq')(h2)
         decoder = tf.keras.Model(latent_inputs, [x_hat_mean, x_hat_log_sigma_sq], name="decoder")
@@ -347,14 +347,14 @@ class VariationalAutoencoder(tf.keras.Model):
         else:
             print("Please choose a convergence method from either pseudo-Gibbs, Metropolis-within-Gibbs or importance sampling")
 
-    def save(self, save_dir = None):
+    def save(self, save_dir=None):
         if not save_dir:
             with open('model_settings.json', 'w') as f:
                 json.dump(self.model_settings, f)
             self.encoder.save('encoder.keras')
             self.decoder.save('decoder.keras')
         else:
-            os.makedirs(save_dir,exist_ok=True)
+            os.makedirs(save_dir, exist_ok=True)
             model_settings_path = os.path.join(save_dir, 'model_settings.json')
             with open(model_settings_path, 'w') as f:
                 json.dump(self.model_settings, f)
