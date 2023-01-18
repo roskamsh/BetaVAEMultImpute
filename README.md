@@ -4,18 +4,20 @@ As missing values are frequently present in genomic data, practical methods to h
 
 The scripts contained in this repository can be used to carry out the analysis in “Genomic data imputation with variational autoencoders”. The data used in the manuscript is publicly accessible. Gene expression data is version 2 of the adjusted pan-cancer gene expression data obtained from Synapse: https://www.synapse.org/#!Synapse:syn4976369.2. DNA methylation data is the WGBS data for BLUEPRINT methylomes (2016 release) obtained from rnbeads.org: https://www.rnbeads.org/methylomes.html. Examples of preprocessing the raw data and creating missing value simulations can be found in ./preprocess.
 
-**Build your environment**
-conda env create --file lass_env.yaml
+**Build your environments**
+
+```
+conda env create --file conda_env/vae_imp_tf2.yaml
+conda env create --file conda_env/lasso.yaml
+```
+
+**Set up input files**
+
+1. Set parameters in nextflow.config and example_config_VAE.json file 
 
 **Imputation**
 
-1. VAE imputation  
-python train_beta_VAE.py --config example_config_VAE.json  
-python test_beta_VAE.py --config example_config_VAE.json  
-2. KNN imputation  
-python test_KNN.py --config example_config_KNN.json  
-3. SVD imputation  
-python test_SVD.py --config example_config_SVD.json
+This pipeline is written in nextflow to allow parallel computing across all imputation strategies.
 
 **Compare clinical correlations**
 
