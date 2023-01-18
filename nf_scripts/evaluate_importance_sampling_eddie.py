@@ -12,7 +12,7 @@ sys.path.append(running_dir)
 
 from betaVAEv2 import load_model
 try:
-    from lib.helper_functions import get_scaled_data, evaluate_coverage
+    from bin.helper_functions import get_scaled_data, evaluate_coverage
 except ModuleNotFoundError:
     from helper_functions import get_scaled_data, evaluate_coverage
 
@@ -38,7 +38,7 @@ if __name__=="__main__":
     # output will be a list of all m datasets imputed by importance sampling (missing observations only)
     missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=max_iter, 
                                                                 m = m_datasets, 
-                                                                method="importance sampling2")
+                                                                method="importance sampling")
     missing_imputed = np.array(missing_imputed)
 
     # export output of m-th dataset

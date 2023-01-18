@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+from bin.helper_functions import get_scaled_data, evaluate_coverage
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you are generating via MI')

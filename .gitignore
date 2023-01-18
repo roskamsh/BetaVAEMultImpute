@@ -12,8 +12,9 @@ output/*
 .idea/
 venv/
 top_up_train_saved_model.py
-lib/__pycache__/*
+bin/__pycache__/*
 *.png
 *.xlsx
 ucl_cluster_logs/
 .ipynb_checkpoints/
+.DS_Store
