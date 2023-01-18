@@ -18,3 +18,4 @@ bin/__pycache__/*
 ucl_cluster_logs/
 .ipynb_checkpoints/
 .DS_Store
+.vscode/*
