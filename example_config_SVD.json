@@ -1,8 +1,0 @@
-{
-  "data_path": "./data_complete.csv", 
-  "corrupt_data_path": "./LGGGBM_missing_10perc_trial_1.csv",
-  "rank": 415,
-  "trial_ind": 1
-
-  
-}
