@@ -1,4 +1,4 @@
-name: vae_imp_test
+name: vae_imp_tf2
 channels:
   - conda-forge
   - bioconda
