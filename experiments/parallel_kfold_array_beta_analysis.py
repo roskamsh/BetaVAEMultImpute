@@ -1,3 +1,4 @@
+import json
 import time
 import sys
 import os
@@ -6,12 +7,9 @@ import pandas as pd
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from tensorflow import keras
 
+from bin.helper_functions import get_scaled_data, DataMissingMaker, evaluate_coverage, evaluate_coverage_quantile
+from betaVAE import VariationalAutoencoder
 
-from bin.helper_functions import get_scaled_data, evaluate_coverage
-from betaVAEv2 import VariationalAutoencoderV2, Sampling
-
-from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
-from experiments.early_stopping_validation_analysis import get_additional_masked_data
 
 """
 This script runs cross-validation in order to tune the value of beta and the number of epochs.
@@ -23,6 +21,51 @@ introduced.
 This script is designed for parallelization where each parallel run tests a different value of beta
 the test value of beta is indexed by d_index. 
 """
+
+def evaluate_variance(model, missing_w_nans, na_ind):
+    missing_w_zeros = np.nan_to_num(missing_w_nans)
+    x_hat_mean, x_hat_log_sigma_sq = model.predict(missing_w_zeros)
+    return np.mean(x_hat_log_sigma_sq.numpy()[na_ind])
+
+def generate_multiple_and_evaluate_coverage(model, missing_w_nans, missing_complete, na_ind, scaler, recycles, m):
+    multi_imputes_missing =[]
+    m_datasets = m
+    missing_row_ind = np.where(np.isnan(missing_w_nans).any(axis=1))
+    subset_na = np.where(np.isnan(missing_w_nans[missing_row_ind]))
+    for i in range(m_datasets):
+        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=recycles, method = "Metropolis-within-Gibbs")
+        multi_imputes_missing.append(missing_imputed[subset_na])
+    results_quantile = evaluate_coverage_quantile(multi_imputes_missing, missing_complete, missing_w_nans, scaler)
+    results  = evaluate_coverage(multi_imputes_missing, missing_complete, missing_w_nans, scaler)
+    results.update(results_quantile)
+    return results
+
+def evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler, recycles, m):
+    coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), missing_complete, na_ind, scaler, recycles, m)
+    _, _, all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler, return_losses=True)
+    results = dict(
+    mae = all_mae[-1],
+    average_variance = evaluate_variance(model, missing_w_nans, na_ind)
+    )
+    for k,v in coverage_results.items():
+        results[k] = v
+    return results
+
+def get_additional_masked_data(complete_w_nan, prop_miss_rows=1, prop_miss_col=0.1):
+    complete_row_index = np.where(np.isfinite(complete_w_nan).all(axis=1))[0]
+    complete_only = complete_w_nan[complete_row_index]
+    miss_maker = DataMissingMaker(complete_only, prop_miss_rows=prop_miss_rows, prop_miss_col=prop_miss_col)
+    extra_missing_validation =  miss_maker.generate_missing_data()
+    # assert np.isnan(extra_missing_validation, axis=0)
+    val_na_ind = np.where(np.isnan(extra_missing_validation))
+    return extra_missing_validation, complete_only, val_na_ind
+
+def create_lock(path='lock.txt'):
+    with open(path, 'w') as filehandle:
+        filehandle.write('temp lock')
+
+def remove_lock(path='lock.txt'):
+    os.remove(path)
 
 def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_path='lock.txt'):
     if not os.path.exists(results_path):
@@ -67,17 +110,11 @@ if __name__=="__main__":
     beta_rates = [0.1, 0.5, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 12, 16, 24, 32, 50, 64]
     beta = beta_rates[beta_index]
     dropout = False
-    model_settings = \
-        dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
-             n_hidden_recog_2=2000,  # 2nd layer encoder neurons
-             n_hidden_gener_1=2000,  # 1st layer decoder neurons
-             n_hidden_gener_2=6000,  # 2nd layer decoder neurons
-             n_input=n_col,  # data input size
-             n_z=200, # dimensionality of latent space
-             )
+    with open('../VAE_config.json', 'r') as f:
+        model_settings = json.load(f)
     model_settings['beta'] = beta
     lr = 0.00001
-    model = VariationalAutoencoderV2(model_settings=model_settings)
+    model = VariationalAutoencoder(model_settings=model_settings)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     epoch_granularity = {0.1:15, 0.5:20, 1:20, 1.25:20, 1.5:25, 1.75:25, 2:25, 2.5:30, 3:30, 4:30, 5:30, 6:30, 8:30, 12:30, 16:30, 24:30, 32:35, 50:40, 64:50, 100:100, 150:100}
     n_epochs_dict = {0.1: 300, 0.5:300, 1:300, 1.25:300, 1.5:350, 1.75:350, 2:400, 2.5:400, 3:500, 4:800, 5:1000, 6:1200, 8:500, 12:600, 16:650, 24:700, 32:900, 50:1100, 64:1200, 100:1400, 150:1600}

@@ -1,9 +1,10 @@
+import json
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import tensorflow as tf
-from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
-from bin.helper_functions import get_scaled_data
+from betaVAE import VariationalAutoencoder, Sampling
+
 """
 This model evaluates the model performance using the mean of Z and X and recycling a certain number of times
 """
@@ -30,8 +31,9 @@ if __name__=="__main__":
     decoder_path = '../output/decoder_masked_20220406-10:16:12_lr0p0005_epoch250.keras'
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
-
-    model = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder,
+    with open('../VAE_config.json') as f:
+        config = json.load(f)
+    model = VariationalAutoencoder(network_architecture=config, pretrained_encoder=encoder,
                                    pretrained_decoder=decoder)
 
     model.compile()
