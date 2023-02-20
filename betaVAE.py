@@ -67,14 +67,14 @@ class VariationalAutoencoder(tf.keras.Model):
         self.kl_loss_tracker = tf.keras.metrics.Mean(name="kl_loss")
 
     def create_encoder(self):
-        n_hidden_recog_1 = self.model_settings['n_hidden_recog_1']
-        n_hidden_recog_2 = self.model_settings['n_hidden_recog_2']
+        encoder_large_n = self.model_settings['hidden_size_1']
+        encoder_small_n = self.model_settings['hidden_size_2']
         encoder_inputs = tf.keras.Input(shape=self.n_input_nodes)
-        h1 = tf.keras.layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(encoder_inputs)
+        h1 = tf.keras.layers.Dense(units=encoder_large_n, activation="relu", name='h1')(encoder_inputs)
         n1 = tf.keras.layers.LayerNormalization(name='norm1')(h1)
         if self.dropout:
             n1 = tf.keras.layers.Dropout(self.dropout_rate)(n1)
-        h2 = tf.keras.layers.Dense(units=n_hidden_recog_2, name='h2')(n1)
+        h2 = tf.keras.layers.Dense(units=encoder_small_n, name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization(name='norm2')(h2)
         if self.dropout:
             n2 = tf.keras.layers.Dropout(self.dropout_rate)(n2)
@@ -86,14 +86,14 @@ class VariationalAutoencoder(tf.keras.Model):
         return encoder
 
     def create_decoder(self):
-        n_hidden_gener_1 = self.model_settings['n_hidden_gener_1']
-        n_hidden_gener_2 = self.model_settings['n_hidden_gener_2']
+        decoder_small_n = self.model_settings['hidden_size_2']
+        decoder_large_n = self.model_settings['hidden_size_1']
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
-        h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
+        h1 = tf.keras.layers.Dense(decoder_small_n, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
         if self.dropout:
             n1 = tf.keras.layers.Dropout(self.dropout_rate)(n1)
-        h2 = tf.keras.layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(n1)
+        h2 = tf.keras.layers.Dense(decoder_large_n, activation="relu", name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization()(h2)
         if self.dropout:
             n2 = tf.keras.layers.Dropout(self.dropout_rate)(n2)

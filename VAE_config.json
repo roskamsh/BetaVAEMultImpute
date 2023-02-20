@@ -11,5 +11,5 @@
   "n_iterations": 10000,
   "data_path": "./data/data_complete.csv", 
   "corrupt_data_path": "./data/LGGGBM_missing_10perc_trial1.csv",
-  "save_rootpath": "./output/"  
+  "save_rootpath": "./output/"
 }
