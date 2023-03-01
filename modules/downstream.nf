@@ -3,6 +3,8 @@ process LASSO {
     cpus 1
     memory '32 GB'
 
+    label 'lasso'
+
     input:
     tuple val(imputation), path(data_impute), path(data_miss), path(data_compl)
 
@@ -84,6 +86,8 @@ process LASSO_TRUE {
     publishDir "${params.outdir}/lasso", mode: "copy"
     cpus 1
     memory '32 GB'
+
+    label 'lasso'
 
     input:
     path data_compl

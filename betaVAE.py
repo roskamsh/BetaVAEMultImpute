@@ -277,7 +277,7 @@ class VariationalAutoencoder(tf.keras.Model):
                         data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
             return data_miss_val, convergence_loglik
 
-        elif method == "importance sampling":
+        elif method == "sampling-importance-resampling":
             n_samp = data_miss_val.shape[0]
             logweights = []
             z_sample_l = []
