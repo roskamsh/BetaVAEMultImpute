@@ -69,7 +69,7 @@ if __name__=="__main__":
             if args.nDat > 1:
                 sys.stderr.write('Single imputation specified, but nDat > 1. Please choose a multiple imputation method or specify nDat=1.\n')
                 sys.exit(1)
-            outname = args.outName
+            outname = args.outName + '_dataset'
             missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=args.maxIter)            
             missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
             na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
