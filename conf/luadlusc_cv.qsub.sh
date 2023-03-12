@@ -10,5 +10,7 @@
 # qsub /SAN/orengolab/PPI/BetaVAEMImputation/conf/luadlusc_cv.qsub.sh
 #These are optional flags but you probably want them in all jobs
 #$ -j y
+
+source /share/apps/source_files/python/python-3.8.3.source
 cd /SAN/orengolab/PPI/BetaVAEMImputation
-python cross_validation/run_cross_validation.py
+python3 cross_validation/run_cross_validation.py
