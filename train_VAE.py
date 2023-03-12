@@ -8,14 +8,13 @@ from betaVAE import VariationalAutoencoder
 from bin.helper_functions import get_scaled_data
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
+parser.add_argument('--config', type=str, default='config.json', help='path to configuration json file')
 
-if  __name__ == '__main__':
-
+if __name__ == '__main__':
     args = parser.parse_args()
     with open(args.config) as f:
         config = json.load(f)
-        
+
     model_settings = \
         dict(
             latent_size=config["latent_size"],
