@@ -152,7 +152,7 @@ if __name__=="__main__":
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
         if loss < 1000:
             break
-        results = evaluate_model(vae, validation_w_nan_cp, validation_complete, val_na_ind, scaler, config.recycles, config.m)
+        results = evaluate_model(vae, validation_w_nan_cp, validation_complete, val_na_ind, scaler, config['recycles'], config['m'])
         completed_epochs = (i + 1) * epochs
         results['k'] = k
         save_results(results, completed_epochs, beta, results_path='beta_analysis.csv')
