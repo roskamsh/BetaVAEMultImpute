@@ -250,7 +250,7 @@ class VariationalAutoencoder(tf.keras.Model):
                     x_hat_mean_s_minus_1 = x_hat_mean
                     x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
                     # Replace na_ind with x_hat_sample from first sampling
-                    data_miss_val[na_ind] = x_hat_sample[na_ind] # todo test what happens if the mean is imputed at this step
+                    data_miss_val[na_ind] = x_hat_sample[na_ind]
                 else:
                     # Define distributions
                     z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
