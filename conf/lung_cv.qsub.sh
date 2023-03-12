@@ -13,6 +13,7 @@
 
 source /share/apps/source_files/python/python-3.8.3.source
 cd /SAN/orengolab/PPI/BetaVAEMImputation
-#export PYTHONPATH=/SAN/orengolab/PPI/BetaVAEMImputation:$PYTHONPATH
+export PYTHONPATH=/SAN/orengolab/PPI/BetaVAEMImputation:$PYTHONPATH
 export PATH=/SAN/orengolab/PPI/BetaVAEMImputation:$PATH
+export PATH=/home/jwells/.local/bin:$PATH
 python3 cross_validation/run_cross_validation.py ${SGE_TASK_ID}
