@@ -107,9 +107,10 @@ def split_training_and_validation(config, k, data_missing_nan):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('d_index', type=int, help='index of the run')
     parser.add_argument('--config', type=str, default='cross_validation/cv_config.json', help='path to configuration json file')
-    parser.add_argument('--d_index', type=int, default=0, help='index of the run')
     args = parser.parse_args()
+    d_index = args.d_index -1
     with open(args.config) as f:
         config = json.load(f)
 
@@ -135,7 +136,7 @@ if __name__=="__main__":
                      5: 1000, 6: 1200, 8: 500, 12: 600, 16: 650, 24: 700, 32: 900, 50: 1100, 64: 1200, 100: 1400,
                      150: 1600}
 
-    beta_index = args.d_index // config['k_folds']
+    beta_index = d_index // config['k_folds']
     beta = beta_rates[beta_index]
     epochs = epoch_granularity[beta]
 
@@ -143,7 +144,7 @@ if __name__=="__main__":
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     vae = VariationalAutoencoder(model_settings=model_settings)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=config["learning_rate"], clipnorm=1.0))
-    k = args.d_index % config['k_folds']
+    k = d_index % config['k_folds']
     training_input, validation_w_nan, validation_complete, val_na_ind = split_training_and_validation(config, k, data_missing_nan)
     for i in range(rounds):
         training_w_zeros = np.copy(training_input) # 667 obs
