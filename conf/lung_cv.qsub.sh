@@ -1,17 +1,17 @@
 #!/bin/bash
-#$ -l tmem=3.9G
+#$ -l tmem=11.9G
 #$ -l h_rt=23:29:30
 #$ -S /bin/bash
 #$ -N lung
 #$ -t 1-95
-#$ -o /SAN/orengolab/PPI/BetaVAEMImputation/logs/
-#$ -wd /SAN/orengolab/PPI/BetaVAEMImputation/
-# qsub /SAN/orengolab/PPI/BetaVAEMImputation/conf/lung_cv.qsub.sh
+#$ -o /SAN/orengolab/nsp13/BetaVAEMImputation/logs/
+#$ -wd /SAN/orengolab/nsp13/BetaVAEMImputation/
+# qsub /SAN/orengolab/nsp13/BetaVAEMImputation/conf/lung_cv.qsub.sh
 #These are optional flags but you probably want them in all jobs
 #$ -j y
 
-source /share/apps/source_files/python/python-3.9.5.source
+
 source /SAN/orengolab/nsp13/BetaVAEMImputation/cluster_conda/bin/activate
 conda activate vae_imp_test
-cd /SAN/orengolab/PPI/BetaVAEMImputation
+cd /SAN/orengolab/nsp13/BetaVAEMImputation
 python cross_validation/run_cross_validation.py ${SGE_TASK_ID}
