@@ -11,7 +11,7 @@
 #$ -j y
 
 source /share/apps/source_files/python/python-3.9.5.source
+source /SAN/orengolab/nsp13/BetaVAEMImputation/cluster_conda/bin/activate
+conda activate vae_imp_test
 cd /SAN/orengolab/PPI/BetaVAEMImputation
-export PATH=/share/apps/python-3.8.5-shared/bin:$PATH
-export LD_LIBRARY_PATH=/share/apps/python-3.8.5-shared/lib:$LD_LIBRARY_PATH
-python3 cross_validation/run_cross_validation.py ${SGE_TASK_ID}
+python cross_validation/run_cross_validation.py ${SGE_TASK_ID}
