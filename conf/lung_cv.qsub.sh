@@ -1,6 +1,5 @@
 #!/bin/bash
 #$ -l tmem=3.9G
-#$ -l h_vmem=3.9G
 #$ -l h_rt=23:29:30
 #$ -S /bin/bash
 #$ -N lung
@@ -11,9 +10,8 @@
 #These are optional flags but you probably want them in all jobs
 #$ -j y
 
-source /share/apps/source_files/python/python-3.8.3.source
+source /share/apps/source_files/python/python-3.9.5.source
 cd /SAN/orengolab/PPI/BetaVAEMImputation
-export PYTHONPATH=/SAN/orengolab/PPI/BetaVAEMImputation:$PYTHONPATH
-export PATH=/SAN/orengolab/PPI/BetaVAEMImputation:$PATH
-export PATH=/home/jwells/.local/bin:$PATH
+export PATH=/share/apps/python-3.8.5-shared/bin:$PATH
+export LD_LIBRARY_PATH=/share/apps/python-3.8.5-shared/lib:$LD_LIBRARY_PATH
 python3 cross_validation/run_cross_validation.py ${SGE_TASK_ID}
