@@ -13,5 +13,8 @@
 
 source /SAN/orengolab/nsp13/BetaVAEMImputation/cluster_conda/bin/activate
 conda activate vae_imp_test
+export PATH=/SAN/orengolab/nsp13/BetaVAEMImputation/:$PATH
+export PYTHONPATH=/SAN/orengolab/nsp13/BetaVAEMImputation/:$PYTHONPATH
+
 cd /SAN/orengolab/nsp13/BetaVAEMImputation
 python cross_validation/run_cross_validation.py ${SGE_TASK_ID}
