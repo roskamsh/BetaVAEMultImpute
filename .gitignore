@@ -19,3 +19,4 @@ ucl_cluster_logs/
 .ipynb_checkpoints/
 .DS_Store
 .vscode/*
+cluster_conda/
