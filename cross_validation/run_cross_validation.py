@@ -142,6 +142,8 @@ if __name__=="__main__":
     beta = beta_rates[beta_index]
     epochs = epoch_granularity[beta]
     model_settings['beta'] = beta
+    for k,v in model_settings.items():
+        print(k, v)
     # maximum number of epochs to train to
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     vae = VariationalAutoencoder(model_settings=model_settings)
