@@ -141,7 +141,7 @@ if __name__=="__main__":
     beta_index = d_index // config['k_folds']
     beta = beta_rates[beta_index]
     epochs = epoch_granularity[beta]
-
+    model_settings['beta'] = beta
     # maximum number of epochs to train to
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     vae = VariationalAutoencoder(model_settings=model_settings)
