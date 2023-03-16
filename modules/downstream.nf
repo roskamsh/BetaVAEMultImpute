@@ -39,8 +39,10 @@ process LASSO {
     compl_data_impute <- as.data.frame(compl_data_impute)
     matr_df <- as.matrix(compl_data_impute)
 
+    # pull first cancer type from md
+    type1 <- unique(md[["admin.disease_code"]])[1]
     ## configure metadata for logistic regression code
-    class <- ifelse(md[["admin.disease_code"]]=="gbm", 1, 0)
+    class <- ifelse(md[["admin.disease_code"]]==type1, 1, 0)
 
     N = dim(matr_df)[1]
     D = dim(matr_df)[2]
@@ -114,8 +116,10 @@ process LASSO_TRUE {
     data_raw <- as.data.frame(data_raw[,-c(1:4)])
     matr_df <- as.matrix(data_raw)
 
+    # pull first cancer type from md
+    type1 <- unique(md[["admin.disease_code"]])[1]
     ## configure metadata for logistic regression code
-    class <- ifelse(md[["admin.disease_code"]]=="gbm", 1, 0)
+    class <- ifelse(md[["admin.disease_code"]]==type1, 1, 0)
 
     N = dim(matr_df)[1]
     D = dim(matr_df)[2]
