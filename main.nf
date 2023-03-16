@@ -7,7 +7,7 @@ params.betaVAE = "$projectDir/betaVAE.py"
 params.training_script = "$projectDir/train_VAE.py"
 params.imputation_script = "$projectDir/impute_missing.py"
 params.configfile = "$projectDir/VAE_config.json"
-params.helper_script = "$projectDir/bin/helper_functions.py"
+params.helper_bin = "$projectDir/bin"
 
 println """\
          MULTIPLE IMPUTATION - NF PIPELINE
@@ -25,7 +25,7 @@ data_ch = channel.fromPath(params.data, checkIfExists: true)
 corrupt_data_ch = channel.fromPath(params.corrupt_data, checkIfExists: true)
 // scripts
 betaVAE_ch = channel.fromPath(params.betaVAE, checkIfExists: true)
-helper_ch = channel.fromPath(params.helper_script, checkIfExists: true)
+helper_ch = channel.fromPath(params.helper_bin, type: 'dir', checkIfExists: true)
 training_script_ch = channel.fromPath(params.training_script, checkIfExists: true)
 imputation_script_ch = channel.fromPath(params.imputation_script, checkIfExists: true)
 // config
@@ -53,7 +53,7 @@ process TRAIN_VAE {
     path('encoder.keras'), emit: encoder
     path('decoder.keras'), emit: decoder
     path('model_settings.json'), emit: model_settings
-    path(script), emit: betaVAE
+    path(betaVAE), emit: betaVAE
 
     script:
     """
@@ -78,7 +78,7 @@ process SINGLE_IMPUTATION {
     output:
     tuple val('single-imputation'), path('NA_imputed_values_single_imputed_dataset.csv'), emit: NAvals
     tuple val('single-imputation'), path('single_imputed_dataset.csv'), emit: dataset
-    tuple val('single-imputatuion'), path('loglikelihood_across_iterations_single_imputed_dataset.csv'), emit: loglik
+    tuple val('single-imputation'), path('loglikelihood_across_iterations_single_imputed_dataset.csv'), emit: loglik
 
     script:
     """
@@ -134,7 +134,7 @@ process IMPUTE_MULTIPLE_pG {
 
     script:
     """
-    python $script --model $encoder --imputeBy pg --dataset $dataset --outName mwg
+    python $script --model $encoder --imputeBy pg --dataset $dataset --outName pg
     """
 }
 
@@ -167,7 +167,7 @@ process IMPUTE_MULTIPLE_iS {
 
 // main workflow
 workflow {
-    include { COMPILE_NA_INDICES; COMPUTE_CIs; COMPUTE_PERCENTILES } from './modules/compile_stats.nf'
+    include { COMPILE_NA_INDICES; COMPUTE_CIs; COMPUTE_PERCENTILES; COMPUTE_MAE_SINGLE } from './modules/compile_stats.nf'
     include { LASSO; LASSO_TRUE } from './modules/downstream.nf'
 
     // number of datasets as single value for importance samping process
@@ -195,6 +195,7 @@ workflow {
     comp_na=COMPILE_NA_INDICES(NAvals_ch)
 
     COMPUTE_CIs(comp_na)
+    COMPUTE_MAE_SINGLE(single_imp.NAvals)
 
     // mix together all imputation NA index results for computing percentiles
     COMPUTE_PERCENTILES(comp_na) 
