@@ -127,10 +127,12 @@ if __name__=="__main__":
             data_path = config["data_path"],
             corrupt_data_path = config["corrupt_data_path"]
             )
-    data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+    data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True,
+                                                     data_path=model_settings['data_path'],
+                                                     corrupt_data_path=model_settings['corrupt_data_path'])
     n_row = data.shape[1]
     model_settings['input_size']=n_row
-    epoch_granularity = {0.1: 15, 0.5: 20, 1: 20, 1.25: 20, 1.5: 25, 1.75: 25, 2: 25, 2.5: 30, 3: 30, 4: 30, 5: 30,
+    epoch_granularity = {0.1: 5, 0.5: 5, 1: 5, 1.25: 10, 1.5: 25, 1.75: 25, 2: 25, 2.5: 30, 3: 30, 4: 30, 5: 30,
                          6: 30, 8: 30, 12: 30, 16: 30, 24: 30, 32: 35, 50: 40, 64: 50, 100: 100, 150: 100}
 
     beta_rates = [0.1, 0.5, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 12, 16, 24, 32, 50, 64]

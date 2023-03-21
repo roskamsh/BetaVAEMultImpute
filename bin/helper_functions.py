@@ -68,7 +68,7 @@ def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     print('average absolute error:', MAE)
     return results
 
-def get_scaled_data(return_scaler=False, put_nans_back=False):
+def get_scaled_data(return_scaler=False, put_nans_back=False, data_path=data_path, corrupt_data_path=corrupt_data_path):
     running_dir = os.getcwd()
     for _ in range(3):
         if os.path.split(os.getcwd())[-1] == 'BetaVAEMImputation':
