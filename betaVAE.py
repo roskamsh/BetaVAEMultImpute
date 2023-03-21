@@ -236,7 +236,6 @@ class VariationalAutoencoder(tf.keras.Model):
         if method == "Metropolis-within-Gibbs":
             all_changed_indicies = []
             for i in range(max_iter):
-
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
