@@ -13,5 +13,6 @@
   "save_rootpath": ".",
   "recycles": 10,
   "m": 100,
-  "k_folds": 5
+  "k_folds": 5,
+  "results_path": "LUADLUSC_beta_analysis.csv"
 }
