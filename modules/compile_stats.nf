@@ -157,3 +157,45 @@ process COMPUTE_PERCENTILES {
     """
 }
 
+process COMPUTE_MAE_SINGLE {
+    publishDir "${params.outdir}/single_imputation", mode: "copy"
+    cpus 1
+    memory '32 GB'
+
+    input:
+    tuple val(imputation), path(na_indices)
+
+    output:
+    path("${imputation}_stats.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import os
+    import pickle
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import json
+
+    from sklearn.preprocessing import StandardScaler
+
+    res = pd.read_csv("${na_indices}").values
+
+    # Assign first column of values to new variable and then remove it from res
+    truevals = res[:,1]
+    impvals = res[:,2]
+
+    differences = np.abs(truevals - impvals)
+    mae = np.mean(differences)
+    print('average absolute error:', mae)
+
+    res = ["${imputation}", mae]
+    # Make pandas dataframe
+    out_table = pd.DataFrame(res, index = ["imputation_strategy","MAE"])
+
+    # export table
+    out_table.to_csv("${imputation}_stats.csv", header = False)
+    """
+}
