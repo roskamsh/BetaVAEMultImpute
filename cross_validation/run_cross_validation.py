@@ -1,5 +1,4 @@
 import sys
-sys.path.append('/SAN/orengolab/nsp13/BetaVAEMImputation')
 import os
 import argparse
 import json
@@ -21,13 +20,6 @@ introduced.
 This script is designed for parallelization where each parallel run tests a different value of beta
 the test value of beta is indexed by d_index. 
 """
-
-class CrossValidation:
-    """Creates an object to run cross-validation over values for epochs and beta.
-    """
-    def __init__(self, model, config):
-        pass
-
 
 def evaluate_variance(model, missing_w_nans, na_ind):
     missing_w_zeros = np.nan_to_num(missing_w_nans)
