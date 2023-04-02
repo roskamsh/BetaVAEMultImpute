@@ -20,3 +20,4 @@ ucl_cluster_logs/
 .DS_Store
 .vscode/*
 cluster_conda/
+vae_imp_test/

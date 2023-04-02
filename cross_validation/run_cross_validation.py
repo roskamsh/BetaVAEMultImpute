@@ -73,7 +73,7 @@ def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_pa
     while os.path.exists(lock_path):
         print('sleeping due to file lock') # prevent paralel runs from writing to the file at the same time
         time.sleep(2)
-    create_lock()
+    create_lock(path=lock_path)
     df = pd.read_csv(results_path)
     results['epoch'] = epoch
     results['beta'] = beta
