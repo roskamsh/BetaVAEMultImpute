@@ -13,18 +13,18 @@ conda env create --file conda_env/lasso.yaml
 
 **Set up input files**
 
+You must have nextflow installed prior to use. 
+
 1. Set parameters in nextflow.config and example_config_VAE.json file 
 
 **Imputation**
 
 This pipeline is written in nextflow to allow parallel computing across all imputation strategies.
 
-**Compare clinical correlations**
+2. Run pipeline via nextflow
 
-1. Spearman correlation to histologic grade  
-python cindex_spearman_cor.py
+```
+nextflow run main.nf
+```
 
-2. Cox regression coefficient to survival  
-Rscript find_cox_coeff.R  
-python cindex_cox_coeff.py
-
+3. View results in the output directory specified in the nextflow.config file.
