@@ -1,8 +1,8 @@
-# BetaVAEImputation
+# BetaVAEMultImpute
 
-As missing values are frequently present in genomic data, practical methods to handle missing data are necessary for downstream analyses that require complete datasets. In this work, we describe the use of a deep learning framework based on the variational autoencoder (VAE) to impute missing values in transcriptome and methylome data analysis.
+As missing values are frequently present in genomic data, practical methods to handle missing data are necessary for downstream analyses that require complete datasets. In this work, we describe the use of a deep learning framework based on the variational autoencoder (VAE) to impute missing values using multiple imputation in transcriptomic data. 
 
-The scripts contained in this repository can be used to carry out the analysis in “Genomic data imputation with variational autoencoders”. The data used in the manuscript is publicly accessible. Gene expression data is version 2 of the adjusted pan-cancer gene expression data obtained from Synapse: https://www.synapse.org/#!Synapse:syn4976369.2. DNA methylation data is the WGBS data for BLUEPRINT methylomes (2016 release) obtained from rnbeads.org: https://www.rnbeads.org/methylomes.html. Examples of preprocessing the raw data and creating missing value simulations can be found in ./preprocess.
+Gene expression data is version 2 of the adjusted pan-cancer gene expression data obtained from Synapse: https://www.synapse.org/#!Synapse:syn4976369.2. Examples of preprocessing the raw data and creating missing value simulations can be found in ./preprocess.
 
 **Build your environments**
 
