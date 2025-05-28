@@ -4,15 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import json
-
-try:
-    with open("VAE_config.json") as f:
-        config = json.load(f)
-except:
-    with open("../VAE_config.json") as f:
-        config = json.load(f)
-data_path = config["data_path"]
-corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
 def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
@@ -33,8 +24,6 @@ def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
         'prop_99q': np.array([low_q99[i] < true_values[i] < up_q99[i] for i in range(len(true_values))]).mean(),
     }
     return results
-
-
 
 def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     assert data_missing.shape == data.shape
@@ -68,14 +57,16 @@ def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     print('average absolute error:', MAE)
     return results
 
-def get_scaled_data(return_scaler=False, put_nans_back=False, data_path=data_path, corrupt_data_path=corrupt_data_path):
-    running_dir = os.getcwd()
-    for _ in range(3):
-        if os.path.split(os.getcwd())[-1] == 'BetaVAEMImputation':
-            break
-        os.chdir('..')
-    data = pd.read_csv(data_path).values
-    data_missing = pd.read_csv(corrupt_data_path).values
+def get_scaled_data(data_path, corrupt_data_path, return_scaler=False, put_nans_back=False, nextflow = False):
+    data_fn = os.path.basename(data_path)
+    corrupt_data_fn = os.path.basename(corrupt_data_path) 
+    # If running in nextflow, use the data & corrupt data in cwd
+    if nextflow:
+        data = pd.read_csv(os.path.join(os.getcwd(),data_fn)).values
+        data_missing = pd.read_csv(os.path.join(os.getcwd(),corrupt_data_fn)).values 
+    else:
+        data = pd.read_csv(data_path).values 
+        data_missing = pd.read_csv(corrupt_data_path).values
     non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
@@ -86,14 +77,12 @@ def get_scaled_data(return_scaler=False, put_nans_back=False, data_path=data_pat
     data_missing = sc.transform(data_missing)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
-    os.chdir(running_dir)
     if put_nans_back:
         data_missing[na_ind] = np.nan
     if return_scaler:
         return data, data_missing, sc
     else:
         return data, data_missing
-
 
 def apply_scaler(data, data_missing, return_scaler=False):
     non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
