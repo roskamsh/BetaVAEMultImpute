@@ -3,6 +3,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import sys
+import json
 # Add scripts in current working directory to sys environment
 # This is necessary for now when running through nextflow and running code in job-specific hash directories
 running_dir = os.getcwd()
@@ -12,6 +13,7 @@ from betaVAE import load_model
 from bin.helper_functions import get_scaled_data
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--config', type=str, default='config.json', help='path to configuration json file')
 parser.add_argument('--model', type=str, default='encoder.keras', 
                     help='Path to trained VAE, in the same directory as decoder.keras')
 parser.add_argument('--imputeBy', type=str, default='single_imputation',
@@ -36,6 +38,8 @@ if __name__=="__main__":
 
     args = parser.parse_args()
     outname = args.outName
+    with open(args.config) as f:
+        config = json.load(f)
 
     # Set model_dir
     if args.model.startswith('/'): # absolute path
@@ -48,7 +52,8 @@ if __name__=="__main__":
 
     # Load trained VAE
     model = load_model(model_dir)
-    data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+    data, data_missing, scaler = get_scaled_data(config["data_path"],config["corrupt_data_path"],
+                                                 put_nans_back=True, return_scaler=True, nextflow=True)
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
