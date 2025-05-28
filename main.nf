@@ -1,13 +1,19 @@
 nextflow.enable.dsl=2
 
-/*
- * pipeline input parameters
- */
-params.betaVAE = "$projectDir/betaVAE.py"
-params.training_script = "$projectDir/train_VAE.py"
-params.imputation_script = "$projectDir/impute_missing.py"
-params.configfile = "$projectDir/VAE_config.json"
-params.helper_bin = "$projectDir/bin"
+// Default parameters
+params.outdir = "${launchDir}/output"
+params.pipeline_report_dir = "${launchDir}/logs"
+
+// Pipeline input parameters
+params.betaVAE = "${projectDir}/betaVAE.py"
+params.training_script = "${projectDir}/train_VAE.py"
+params.imputation_script = "${projectDir}/impute_missing.py"
+params.configfile = "You must provide this file" // Example provided at VAE_config.json
+params.helper_bin = "${projectDir}/bin"
+
+// Input data
+params.data = "You must provide the complete dataset"
+params.corrupt_data = "You must provide the corrupt dataset"
 
 println """\
          MULTIPLE IMPUTATION - NF PIPELINE
