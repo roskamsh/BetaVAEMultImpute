@@ -28,7 +28,7 @@ if __name__ == '__main__':
             )  
     
     # Set up and scale dataframes
-    data, data_missing = get_scaled_data()
+    data, data_missing = get_scaled_data(config["data_path"],config["corrupt_data_path"],nextflow=True)
     n_row = data.shape[1]
     model_settings['input_size']=n_row  # data input size
     
