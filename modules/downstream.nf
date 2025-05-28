@@ -4,7 +4,7 @@ process LASSO {
     memory '32 GB'
 
     label 'lasso'
-
+ 
     input:
     tuple val(imputation), path(data_impute), path(data_miss), path(data_compl)
 
