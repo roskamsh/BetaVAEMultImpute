@@ -40,7 +40,7 @@ if __name__=="__main__":
     args = parser.parse_args()
     outname = args.outName
     configfile = args.config
-    model = args.model 
+    model_file = args.model 
     imputeby = args.imputeBy
     max_iter = args.maxIter 
     dataset = args.dataset 
@@ -51,7 +51,7 @@ if __name__=="__main__":
     # Defaults to run interatively
     outname = "test"
     configfile = "data/configs/test_params.json"
-    model = "encoder.keras"
+    model_file = "encoder.keras"
     imputeby = "sir"
     max_iter = 10 
     dataset = 1
@@ -62,10 +62,10 @@ if __name__=="__main__":
         config = json.load(f)
 
     # Set model_dir
-    if model.startswith('/'): # absolute path
-        model_dir = os.path.split(model)[0]
-    elif model.__contains__('/'): # relative path
-        rel_path = os.path.split(model)[0]
+    if model_file.startswith('/'): # absolute path
+        model_dir = os.path.split(model_file)[0]
+    elif model_file.__contains__('/'): # relative path
+        rel_path = os.path.split(model_file)[0]
         model_dir = os.path.join(running_dir,rel_path)
     else: # current working directory
         model_dir = running_dir
