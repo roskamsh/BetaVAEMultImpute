@@ -19,7 +19,7 @@ process TRAIN_VAE {
 
     script:
     """
-    python $script --config $config
+    python $script --config $config --nextflow True
     """
 }
 
