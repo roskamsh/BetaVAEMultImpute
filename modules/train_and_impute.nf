@@ -46,7 +46,7 @@ process SINGLE_IMPUTATION {
 
     script:
     """
-    python $script --model $encoder --imputeBy si --outName single_imputed --config $config
+    python $script --model $encoder --imputeBy si --outName single_imputed --config $config --nextflow True
     """
 }
 
@@ -74,7 +74,7 @@ process IMPUTE_MULTIPLE_MG {
 
     script:
     """
-    python $script --model $encoder --imputeBy mwg --dataset $dataset --outName mwg --config $config
+    python $script --model $encoder --imputeBy mwg --dataset $dataset --outName mwg --config $config --nextflow True
     """
 }
 
@@ -102,7 +102,7 @@ process IMPUTE_MULTIPLE_pG {
 
     script:
     """
-    python $script --model $encoder --imputeBy pg --dataset $dataset --outName pg --config $config
+    python $script --model $encoder --imputeBy pg --dataset $dataset --outName pg --config $config --nextflow True
     """
 }
 
@@ -130,6 +130,6 @@ process IMPUTE_MULTIPLE_iS {
 
     script:
     """
-    python $script --model $encoder --imputeBy sir --nDat $num_datasets --outName sir --config $config
+    python $script --model $encoder --imputeBy sir --nDat $num_datasets --outName sir --config $config --nextflow True
     """    
 }
