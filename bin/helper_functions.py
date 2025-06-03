@@ -1,10 +1,19 @@
 import os
-import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import json
 from sklearn.preprocessing import StandardScaler
+from sklearn.experimental import enable_iterative_imputer  
+from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
+from sklearn.linear_model import BayesianRidge
+from sklearn.ensemble import RandomForestRegressor
+
+param_imputation = {
+        'strategy': 'mean',  # for simple imputer  (mean or median)
+        'n_neighbors': 5,    # for knn imputer
+        'max_iter': 20,      # for iterative imputer
+        'tol': 1e-3          # for iterative imputer
+    }
 
 def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
     na_ind = np.where(np.isnan(data_missing))
@@ -57,7 +66,54 @@ def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     print('average absolute error:', MAE)
     return results
 
-def get_scaled_data(data_path, corrupt_data_path, return_scaler=False, put_nans_back=False, nextflow = False):
+def impute_nas_with_zeros(data_missing):
+    data_imputed = data_missing.copy()
+    na_ind = np.where(np.isnan(data_imputed))
+    data_imputed[na_ind] = 0
+    return data_imputed
+
+def impute_nas_with_iterative_imputer(data_missing, type_imputer, params):
+    if isinstance(data_missing, np.ndarray):
+        dataframe_with_nans = pd.DataFrame(data_missing)
+    else:
+        dataframe_with_nans = data_missing.copy()
+    if type_imputer == "simple":
+        imp = SimpleImputer(missing_values=np.nan, strategy=params['strategy'])
+    elif type_imputer == "knn":
+        imp = KNNImputer(missing_values=np.nan, n_neighbors=params['n_neighbors'])
+    elif type_imputer == "iterative_bayesridge":  # regularized linear regression
+        imp = IterativeImputer(estimator=BayesianRidge(), missing_values=np.nan,
+                               max_iter=params['max_iter'], tol=params['tol'])
+    elif type_imputer == "iterative_randomforest":  # Forests of randomized trees regression
+        imp = IterativeImputer(estimator=RandomForestRegressor(), missing_values=np.nan,
+                               max_iter=params['max_iter'], tol=params['tol'],verbose=1)
+    else:
+        raise ValueError(f"Invalid type of imputer chosen: {type_imputer}. Choose from 'simple', 'knn', 'iterative'.")
+    data_imputed = imp.fit_transform(dataframe_with_nans)
+
+    if isinstance(data_missing, np.ndarray):
+        return data_imputed
+    elif isinstance(data_missing, pd.DataFrame):
+        return data_imputed.to_numpy()
+    return data_imputed
+    
+def perform_initial_imputation(data_missing, type_imputer, params=param_imputation):
+    """
+    Here we run initial imputation at missing value indicies. 
+    This can be done either by using the IterativeImputer, specifying options "knn", "iterative_bayesridge" or "iterative_randomforest".
+    However, this method is very slow / not feasible for large dimensions, so we recommend imputing with zeros to start, for z-scored data.
+    """
+
+    if type_imputer == "zero":
+        data_imputed = impute_nas_with_zeros(data_missing)
+    elif type_imputer in ["simple","knn","iterative_bayesridge","iterative_randomforest"]:
+        data_imputed = impute_nas_with_iterative_imputer(data_missing, type_imputer, params)
+    else:
+        raise ValueError(f"Invalid type of imputer chosen: {type_imputer}. Choose from 'simple', 'knn', 'iterative', or 'zero'.")
+
+    return data_imputed
+
+def get_scaled_data(data_path, corrupt_data_path, initial_imputation_strategy, return_scaler=False, put_nans_back=False, nextflow=False):
     data_fn = os.path.basename(data_path)
     corrupt_data_fn = os.path.basename(corrupt_data_path) 
     # If running in nextflow, use the data & corrupt data in cwd
@@ -73,7 +129,7 @@ def get_scaled_data(data_path, corrupt_data_path, return_scaler=False, put_nans_
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
     sc.fit(data_missing_complete)
     del data_missing_complete
-    data_missing[na_ind] = 0
+    data_missing = perform_initial_imputation(data_missing, type_imputer = initial_imputation_strategy)
     data_missing = sc.transform(data_missing)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
