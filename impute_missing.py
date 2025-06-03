@@ -32,20 +32,40 @@ parser.add_argument('--nDat', type=int, default=1,
                     help='Number of datasets to are generating via MI for importance sampling')
 parser.add_argument('--outName', type=str, default='imputed',
                     help='Output name prefix for your imputed dataset')
+parser.add_argument('--nextflow', type=bool, default=False, help = 'Whether you are running from a nextflow pipeline or not.')
 
 
 if __name__=="__main__":
 
     args = parser.parse_args()
     outname = args.outName
-    with open(args.config) as f:
+    configfile = args.config
+    model = args.model 
+    imputeby = args.imputeBy
+    max_iter = args.maxIter 
+    dataset = args.dataset 
+    n_dat = args.nDat 
+    outname = args.outName
+    run_nextflow = args.nextflow
+
+    # Defaults to run interatively
+    outname = "test"
+    configfile = "data/configs/test_params.json"
+    model = "encoder.keras"
+    imputeby = "sir"
+    max_iter = 10 
+    dataset = 1
+    n_dat = 10
+    run_nextflow = False
+
+    with open(configfile) as f:
         config = json.load(f)
 
     # Set model_dir
-    if args.model.startswith('/'): # absolute path
-        model_dir = os.path.split(args.model)[0]
-    elif args.model.__contains__('/'): # relative path
-        rel_path = os.path.split(args.model)[0]
+    if model.startswith('/'): # absolute path
+        model_dir = os.path.split(model)[0]
+    elif model.__contains__('/'): # relative path
+        rel_path = os.path.split(model)[0]
         model_dir = os.path.join(running_dir,rel_path)
     else: # current working directory
         model_dir = running_dir
@@ -53,29 +73,32 @@ if __name__=="__main__":
     # Load trained VAE
     model = load_model(model_dir)
     data, data_missing, scaler = get_scaled_data(config["data_path"],config["corrupt_data_path"],
-                                                 put_nans_back=True, return_scaler=True, nextflow=True)
+                                                 initial_imputation_strategy=config["initial_imputation_strategy"],
+                                                 put_nans_back=True, return_scaler=True, nextflow=run_nextflow)
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
 
     # Only need to run impute_multiple() once if sampling importance resampling
-    if args.imputeBy == 'sir':
-        missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=args.maxIter, m = args.nDat,
-                                                                            method="sampling-importance-resampling")
+    if imputeby == 'sir':
+        missing_imputed, ess = model.impute_multiple(
+            data_corrupt=data_missing, max_iter=max_iter, m = n_dat,
+            method="sampling-importance-resampling"
+        )
         np.savetxt(outname + '_ESS.csv', np.array(ess), delimiter=',')
     # Re-scale data for comparing imputed values
     data_rescaled = scaler.inverse_transform(data.copy())
     truevals_data_missing = data_rescaled[missing_rows]
 
     # Impute M times
-    for i in range(args.nDat):
+    for i in range(n_dat):
         # Single imputation
-        if args.imputeBy == 'si':
-            if args.nDat > 1:
+        if imputeby == 'si':
+            if n_dat > 1:
                 sys.stderr.write('Single imputation specified, but nDat > 1. Please choose a multiple imputation method or specify nDat=1.\n')
                 sys.exit(1)
-            outname = args.outName + '_dataset'
-            missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=args.maxIter)            
+            outname = outname + '_dataset'
+            missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=max_iter)            
             missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
             na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
             na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
@@ -83,26 +106,26 @@ if __name__=="__main__":
             np.savetxt('loglikelihood_across_iterations_' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
             print("Mean Absolute Error:", sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
         # Multiple imputation
-        elif args.imputeBy in ['mwg','pg','sir']:
+        elif imputeby in ['mwg','pg','sir']:
             # Only generating one dataset, use dataset argument to name the output file
-            if args.nDat == 1:
-                outname = args.outName + '_dataset_' + args.dataset
+            if n_dat == 1:
+                outname = outname + '_dataset_' + dataset
             # More than one dataset, use the nDat argument to name the output files
             else:
-                outname = args.outName + '_dataset_' + str(i+1)
-            if args.imputeBy == 'sir':
+                outname = outname + '_dataset_' + str(i+1)
+            if imputeby == 'sir':
                 missing_imputed[i] = scaler.inverse_transform(missing_imputed[i])
                 na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed[i][na_ind]})
                 na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
                 np.savetxt(outname + ".csv", missing_imputed[i], delimiter=",")
                 print("Mean Absolute Error:", sum(((missing_imputed[i][na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
-            elif args.imputeBy in ['mwg','pg']:
+            elif imputeby in ['mwg','pg']:
                 data_missing_copy = data_missing.copy()
-                if args.imputeBy == 'mwg':
-                    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing_copy, max_iter=args.maxIter,
+                if imputeby == 'mwg':
+                    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing_copy, max_iter=max_iter,
                                                                                 method="Metropolis-within-Gibbs")
-                elif args.imputeBy == 'pg':
-                    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing_copy, max_iter=args.maxIter,
+                elif imputeby == 'pg':
+                    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing_copy, max_iter=max_iter,
                                                                                 method="pseudo-Gibbs")
                 missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
                 na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
