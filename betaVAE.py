@@ -316,6 +316,8 @@ class VariationalAutoencoder(tf.keras.Model):
                 loc=z_mean, 
                 scale=tf.sqrt(tf.exp(z_log_sigma_sq))
             )
+        else:
+            raise ValueError(f"Invalid proposal {proposal} specified. Please choose either normal or t.")
         return z_Distribution
 
     def get_samples_and_weights(self, data_miss_val, compl_ind, max_iter, z_Distribution, z_prior, proposal):
