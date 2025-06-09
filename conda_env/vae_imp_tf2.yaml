@@ -4,6 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - python=3.9
   - matplotlib=3.5
   - tensorflow-probability=0.15
   - scikit-learn=1.0
