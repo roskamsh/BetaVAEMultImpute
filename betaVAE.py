@@ -323,6 +323,7 @@ class VariationalAutoencoder(tf.keras.Model):
         z_sample_l = []
         probability_mask = np.zeros(data_miss_val.shape)
         probability_mask[compl_ind] = 1
+        
         for i in range(max_iter):
             z_l = z_Distribution.sample().numpy()
             x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l)
@@ -331,12 +332,12 @@ class VariationalAutoencoder(tf.keras.Model):
             log_p_Yc_z = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val).numpy() * probability_mask, axis=1).numpy()
             log_p_z = tf.reduce_sum(z_prior.log_prob(z_l), axis=1).numpy()
             if proposal == 't':
-                # Multivariate T already computes joint log-p across all latent dimensions
+                # Multivariate T already computes joint log-prob across all latent dimensions
                 log_q_z_Y = z_Distribution.log_prob(z_l).numpy() 
             else:
                 log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l), axis=1).numpy()
 
-            logr = log_p_Yc_z + log_p_z - log_q_z_Y
+            logr = (1/self.beta)*log_p_Yc_z + log_p_z - log_q_z_Y # Take 1/beta factor out of the log
             logweights.append(logr)
             z_sample_l.append(z_l)
         return logweights, z_sample_l
