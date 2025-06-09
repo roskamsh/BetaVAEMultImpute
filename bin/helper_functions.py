@@ -7,6 +7,9 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 from sklearn.linear_model import BayesianRidge
 from sklearn.ensemble import RandomForestRegressor
+import tensorflow as tf
+
+import tensorflow_probability as tfp
 
 param_imputation = {
         'strategy': 'mean',  # for simple imputer  (mean or median)
@@ -157,6 +160,58 @@ def apply_scaler(data, data_missing, return_scaler=False):
     else:
         return data, data_missing
 
+def mc_wrt_p(data_complete, num_samples_mc, model, z_prior, want_log=True, observed_indices_mask=None):
+    N = data_complete.shape[0]
+    beta = model.beta
+    
+    zmc = z_prior.sample((num_samples_mc,)).numpy()
+    
+    logpy_byobs = []
+    for i in range(N):
+        data_complete_i = data_complete[i]
+        zi = zmc[:,i,:]
+        x_hat_mean, x_hat_log_sigma_sq = model.decoder.predict(zi)
+        x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+        X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # size [num_samples_mcmc, num_features]
+        if want_log:
+            # Here logpy is an array with the logp for observation i and each sample across num_samples_mcmc
+            # Will be size [num_samples_mc]
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy()  
+            else:
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy(), axis=1).numpy() 
+            c = np.max(logpy)
+            internal_mean = np.mean(np.exp(logpy - c), axis=0)
+            result = np.log(internal_mean) + c
+        else:
+            logpy = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
+            result = np.mean(logpy, axis=0)
+        logpy_byobs.append(result)
+    return np.array(logpy_byobs)
+
+def log_lik_ymis_given_obs_mcmc_p(data, data_corrupt, model, num_samples_mc=500):
+    latent_dim = model.latent_dim
+    missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
+    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:]
+    data_complete_at_missing_samples = data[missing_row_ind[0],:]
+    compl_ind = np.where(np.isfinite(data_corrupt_at_missing_samples))
+    observed_indices_mask = np.zeros(data_complete_at_missing_samples.shape)
+    observed_indices_mask[compl_ind] = 1
+    z_prior = tfp.distributions.Normal(
+            loc=np.zeros([data_complete_at_missing_samples.shape[0], latent_dim]), 
+            scale=np.ones([data_complete_at_missing_samples.shape[0], latent_dim])
+    )
+
+    # log_p_y is a list of length N_samp, with the approximation of logp(y_true) from mc
+    log_p_y = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       z_prior=z_prior, observed_indices_mask=None, want_log=True)
+    log_p_yobs = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       z_prior=z_prior, observed_indices_mask=observed_indices_mask, want_log=True)
+    
+    log_p_y_mis_given_obs = log_p_y - log_p_yobs
+
+    return log_p_y_mis_given_obs
 
 class DataMissingMaker: # TODO remove this unused class
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):
