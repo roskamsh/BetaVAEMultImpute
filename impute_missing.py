@@ -10,7 +10,7 @@ running_dir = os.getcwd()
 sys.path.append(running_dir)
 
 from betaVAE import load_model
-from bin.helper_functions import get_scaled_data
+from bin.helper_functions import get_scaled_data, log_lik_ymis_given_obs_mcmc_q, log_lik_ymis_given_obs_mcmc_p
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='path to configuration json file')
@@ -30,6 +30,7 @@ parser.add_argument('--dataset', type=str, default='1',
                     help='M-th dataset you are generating via multiple imputation. This should be specified if --nDat equals 1')
 parser.add_argument('--nDat', type=int, default=1, 
                     help='Number of datasets to are generating via MI for importance sampling')
+parser.add_argument('--sirProposal', type=str, default='t', help = "Proposal distribution to use for sampling-importance-resampling")
 parser.add_argument('--outName', type=str, default='imputed',
                     help='Output name prefix for your imputed dataset')
 parser.add_argument('--nextflow', type=bool, default=False, help = 'Whether you are running from a nextflow pipeline or not.')
@@ -44,6 +45,7 @@ if __name__=="__main__":
     imputeby = args.imputeBy
     max_iter = args.maxIter 
     dataset = args.dataset 
+    proposal = args.sirProposal
     n_dat = args.nDat 
     outname = args.outName
     run_nextflow = args.nextflow
@@ -55,6 +57,7 @@ if __name__=="__main__":
     imputeby = "sir"
     max_iter = 10 
     dataset = 1
+    proposal = "t"
     n_dat = 10
     run_nextflow = False
 
@@ -85,7 +88,7 @@ if __name__=="__main__":
         # max_iter here is the number of samples, S, that we take
         missing_imputed, ess = model.impute_multiple(
             data_corrupt=data_missing, max_iter=max_iter, m = n_dat,
-            method="sampling-importance-resampling"
+            method="sampling-importance-resampling", proposal=proposal
         )
         np.savetxt(outname + '_ESS.csv', np.array(ess), delimiter=',')
     # Re-scale data for comparing imputed values
@@ -104,9 +107,12 @@ if __name__=="__main__":
             missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
             na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
             na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
+            mae = sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]) 
+            mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
+            mae_df.to_csv(f"MAE_{outname}.csv", index=False)
             np.savetxt(outname + ".csv", missing_imputed_rescaled, delimiter=",")
             np.savetxt('loglikelihood_across_iterations_' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
-            print("Mean Absolute Error:", sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
+            print(f"Mean Absolute Error: {mae}")
         # Multiple imputation
         elif imputeby in ['mwg','pg','sir']:
             # Only generating one dataset, use dataset argument to name the output file
@@ -124,7 +130,10 @@ if __name__=="__main__":
                 mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
                 mae_df.to_csv(f"MAE_{outname}.csv", index=False)
                 print(f"Mean Absolute Error: {mae}")
-                 
+                mcmc_p = log_lik_ymis_given_obs_mcmc_p(data, data_missing, model, num_samples_mc=500)
+                mcmc_q = log_lik_ymis_given_obs_mcmc_q(data, data_missing, model, num_samples_mc=500, proposal = proposal, df = 3)
+                approx_loglik = pd.DataFrame({'mcmc_p': mcmc_p, 'mcmc_q': mcmc_q})
+                approx_loglik.to_csv(f"MCMC_approximate_loglikelihood_SIR.csv",index=False)
             elif imputeby in ['mwg','pg']:
                 data_missing_copy = data_missing.copy()
                 if imputeby == 'mwg':
