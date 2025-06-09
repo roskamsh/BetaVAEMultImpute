@@ -160,13 +160,18 @@ def apply_scaler(data, data_missing, return_scaler=False):
     else:
         return data, data_missing
 
-def mc_wrt_p(data_complete, num_samples_mc, model, z_prior, want_log=True, observed_indices_mask=None):
+def mc_wrt_p(data_complete, num_samples_mc, model, want_log=True, observed_indices_mask=None):
     N = data_complete.shape[0]
     beta = model.beta
+    latent_dim = model.latent_dim
     
+    z_prior = tfp.distributions.Normal(
+            loc=np.zeros([data_complete.shape[0], latent_dim]), 
+            scale=np.ones([data_complete.shape[0], latent_dim])
+    ) 
     zmc = z_prior.sample((num_samples_mc,)).numpy()
     
-    logpy_byobs = []
+    prob_byobs = []
     for i in range(N):
         data_complete_i = data_complete[i]
         zi = zmc[:,i,:]
@@ -185,29 +190,99 @@ def mc_wrt_p(data_complete, num_samples_mc, model, z_prior, want_log=True, obser
             internal_mean = np.mean(np.exp(logpy - c), axis=0)
             result = np.log(internal_mean) + c
         else:
-            logpy = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
-            result = np.mean(logpy, axis=0)
-        logpy_byobs.append(result)
-    return np.array(logpy_byobs)
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy() 
+            else:
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
+            result = np.mean(py, axis=0)
+        prob_byobs.append(result)
+    return np.array(prob_byobs)
 
-def log_lik_ymis_given_obs_mcmc_p(data, data_corrupt, model, num_samples_mc=500):
+def mc_wrt_q(data_complete, num_samples_mc, model, proposal, df, want_log=True, observed_indices_mask=None):
+    N = data_complete.shape[0]
+    beta = model.beta
     latent_dim = model.latent_dim
+
+    z_mean, z_log_sigma_sq, _ = model.encoder.predict(data_complete)
+    z_Distribution = model.get_proposal_distribution(z_mean=z_mean, z_log_sigma_sq=z_log_sigma_sq, proposal=proposal, df=df)
+    z_prior = tfp.distributions.Normal(
+            loc=np.zeros([data_complete.shape[0], latent_dim]), 
+            scale=np.ones([data_complete.shape[0], latent_dim])
+    )  
+    
+    zmc = z_Distribution.sample((num_samples_mc,)).numpy() # size [num_samples_mc, num_obs, latent_dim]
+    
+    # Compute logpz & logqz across all samples
+    if want_log:
+        logpz_byobs = np.transpose(tf.reduce_sum(z_prior.log_prob(zmc),axis=2))
+        logqz_byobs = np.transpose(z_Distribution.log_prob(zmc))
+    else:
+        pz_byobs = np.transpose(tf.reduce_sum(z_prior.prob(zmc),axis=2))
+        qz_byobs = np.transpose(z_Distribution.prob(zmc))
+
+    prob_byobs = []
+    for i in range(N):
+        data_complete_i = data_complete[i]
+        zi = zmc[:,i,:]
+        x_hat_mean, x_hat_log_sigma_sq = model.decoder.predict(zi)
+        x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+        X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # size [num_samples_mcmc, num_features]
+        if want_log:
+            # Here logpy is an array with the logp for observation i and each sample across num_samples_mcmc
+            # Will be size [num_samples_mc]
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy()  
+            else:
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy(), axis=1).numpy() 
+            temp = logpy + logpz_byobs[i] - logqz_byobs[i]
+            c = np.max(temp, axis=0)
+            internal_mean = np.mean(np.exp(temp - c), axis=0)
+            result = np.log(internal_mean) + c
+        else:
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy() 
+            else: 
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
+            temp = (pz_byobs[i]*py)/qz_byobs[i]
+            result = np.mean(temp, axis=0)
+        
+        prob_byobs.append(result)
+    return np.array(prob_byobs)
+
+def log_lik_ymis_given_obs_mcmc_q(data, data_corrupt, model, num_samples_mc=500, proposal='t', df=3):
     missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
-    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:]
-    data_complete_at_missing_samples = data[missing_row_ind[0],:]
+    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:].copy()
+    data_complete_at_missing_samples = data[missing_row_ind[0],:].copy()
     compl_ind = np.where(np.isfinite(data_corrupt_at_missing_samples))
     observed_indices_mask = np.zeros(data_complete_at_missing_samples.shape)
     observed_indices_mask[compl_ind] = 1
-    z_prior = tfp.distributions.Normal(
-            loc=np.zeros([data_complete_at_missing_samples.shape[0], latent_dim]), 
-            scale=np.ones([data_complete_at_missing_samples.shape[0], latent_dim])
-    )
+
+    # log_p_y is a list of length N_samp, with the approximation of logp(y_true) from mc
+    log_p_y = mc_wrt_q(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       proposal=proposal, df=df, observed_indices_mask=None, want_log=True)
+    log_p_yobs = mc_wrt_q(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                          proposal=proposal, df=df, observed_indices_mask=observed_indices_mask, want_log=True)
+    
+    log_p_y_mis_given_obs = log_p_y - log_p_yobs
+
+    return log_p_y_mis_given_obs
+
+def log_lik_ymis_given_obs_mcmc_p(data, data_corrupt, model, num_samples_mc=500):
+    missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
+    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:].copy()
+    data_complete_at_missing_samples = data[missing_row_ind[0],:].copy()
+    compl_ind = np.where(np.isfinite(data_corrupt_at_missing_samples))
+    observed_indices_mask = np.zeros(data_complete_at_missing_samples.shape)
+    observed_indices_mask[compl_ind] = 1
 
     # log_p_y is a list of length N_samp, with the approximation of logp(y_true) from mc
     log_p_y = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
-                       z_prior=z_prior, observed_indices_mask=None, want_log=True)
+                       observed_indices_mask=None, want_log=True)
     log_p_yobs = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
-                       z_prior=z_prior, observed_indices_mask=observed_indices_mask, want_log=True)
+                       observed_indices_mask=observed_indices_mask, want_log=True)
     
     log_p_y_mis_given_obs = log_p_y - log_p_yobs
 
