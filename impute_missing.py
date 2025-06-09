@@ -75,12 +75,14 @@ if __name__=="__main__":
     data, data_missing, scaler = get_scaled_data(config["data_path"],config["corrupt_data_path"],
                                                  initial_imputation_strategy=config["initial_imputation_strategy"],
                                                  put_nans_back=True, return_scaler=True, nextflow=run_nextflow)
+    
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
 
     # Only need to run impute_multiple() once if sampling importance resampling
     if imputeby == 'sir':
+        # max_iter here is the number of samples, S, that we take
         missing_imputed, ess = model.impute_multiple(
             data_corrupt=data_missing, max_iter=max_iter, m = n_dat,
             method="sampling-importance-resampling"
@@ -118,7 +120,11 @@ if __name__=="__main__":
                 na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed[i][na_ind]})
                 na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
                 np.savetxt(outname + ".csv", missing_imputed[i], delimiter=",")
-                print("Mean Absolute Error:", sum(((missing_imputed[i][na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
+                mae = sum(((missing_imputed[i][na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0])
+                mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
+                mae_df.to_csv(f"MAE_{outname}.csv", index=False)
+                print(f"Mean Absolute Error: {mae}")
+                 
             elif imputeby in ['mwg','pg']:
                 data_missing_copy = data_missing.copy()
                 if imputeby == 'mwg':
@@ -132,7 +138,10 @@ if __name__=="__main__":
                 na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
                 np.savetxt(outname + ".csv", missing_imputed_rescaled, delimiter=",")
                 np.savetxt('loglikelihood_across_iterations_' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
-                print("Mean Absolute Error:", sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))                                          
+                mae = sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0])
+                mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
+                mae_df.to_csv(f"MAE_{outname}.csv", index=False)
+                print("Mean Absolute Error:", mae)                                          
             else:
                 sys.stderr.write('No valid Multiple imputation procedure specified, but nDat > 1. Please refine nDat or specify --imputeBy to be mwg, pg or sir.\n') 
                 sys.exit(1)
