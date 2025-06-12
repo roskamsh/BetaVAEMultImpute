@@ -31,6 +31,7 @@ parser.add_argument('--dataset', type=str, default='1',
 parser.add_argument('--nDat', type=int, default=1, 
                     help='Number of datasets to are generating via MI for importance sampling')
 parser.add_argument('--sirProposal', type=str, default='t', help = "Proposal distribution to use for sampling-importance-resampling")
+parser.add_argument('--approx_loglik_numsamples_mcmc', type=int, default=1000, help = "Number of samples for MCMC approximation while computing p(ymis|yobs)")
 parser.add_argument('--outName', type=str, default='imputed',
                     help='Output name prefix for your imputed dataset')
 parser.add_argument('--nextflow', type=bool, default=False, help = 'Whether you are running from a nextflow pipeline or not.')
@@ -49,17 +50,19 @@ if __name__=="__main__":
     n_dat = args.nDat 
     outname = args.outName
     run_nextflow = args.nextflow
+    S = args.approx_loglik_numsamples_mcmc
 
     # Defaults to run interatively
-    outname = "test"
-    configfile = "data/configs/test_params.json"
-    model_file = "encoder.keras"
-    imputeby = "sir"
-    max_iter = 10 
-    dataset = 1
-    proposal = "t"
-    n_dat = 10
-    run_nextflow = False
+    #outname = "test"
+    #configfile = "data/configs/test_params.json"
+    #model_file = "output/model/beta_1/encoder.keras"
+    #imputeby = "sir"
+    #max_iter = 10 
+    #dataset = 1
+    #proposal = "t"
+    #n_dat = 10
+    #S = 500
+    #run_nextflow = False
 
     with open(configfile) as f:
         config = json.load(f)
@@ -91,6 +94,11 @@ if __name__=="__main__":
             method="sampling-importance-resampling", proposal=proposal
         )
         np.savetxt(outname + '_ESS.csv', np.array(ess), delimiter=',')
+        mcmc_p = log_lik_ymis_given_obs_mcmc_p(data, data_missing, model, num_samples_mc=S)
+        mcmc_q = log_lik_ymis_given_obs_mcmc_q(data, data_missing, model, num_samples_mc=S, proposal = proposal, df = 3)
+        approx_loglik = pd.DataFrame({'mcmc_p': mcmc_p, 'mcmc_q': mcmc_q})
+        approx_loglik.to_csv(f"MCMC_approximate_loglikelihood_SIR.csv",index=False)
+    
     # Re-scale data for comparing imputed values
     data_rescaled = scaler.inverse_transform(data.copy())
     truevals_data_missing = data_rescaled[missing_rows]
@@ -117,23 +125,19 @@ if __name__=="__main__":
         elif imputeby in ['mwg','pg','sir']:
             # Only generating one dataset, use dataset argument to name the output file
             if n_dat == 1:
-                outname = outname + '_dataset_' + dataset
+                outname_i = outname + '_dataset_' + dataset
             # More than one dataset, use the nDat argument to name the output files
             else:
-                outname = outname + '_dataset_' + str(i+1)
+                outname_i = outname + '_dataset_' + str(i+1)
             if imputeby == 'sir':
                 missing_imputed[i] = scaler.inverse_transform(missing_imputed[i])
                 na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed[i][na_ind]})
-                na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
-                np.savetxt(outname + ".csv", missing_imputed[i], delimiter=",")
+                na_indices.to_csv('NA_imputed_values_' + outname_i + '.csv')
+                np.savetxt(outname_i + ".csv", missing_imputed[i], delimiter=",")
                 mae = sum(((missing_imputed[i][na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0])
-                mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
-                mae_df.to_csv(f"MAE_{outname}.csv", index=False)
+                mae_df = pd.DataFrame({'dataset': [outname_i], 'MAE': [mae]})
+                mae_df.to_csv(f"MAE_{outname_i}.csv", index=False)
                 print(f"Mean Absolute Error: {mae}")
-                mcmc_p = log_lik_ymis_given_obs_mcmc_p(data, data_missing, model, num_samples_mc=500)
-                mcmc_q = log_lik_ymis_given_obs_mcmc_q(data, data_missing, model, num_samples_mc=500, proposal = proposal, df = 3)
-                approx_loglik = pd.DataFrame({'mcmc_p': mcmc_p, 'mcmc_q': mcmc_q})
-                approx_loglik.to_csv(f"MCMC_approximate_loglikelihood_SIR.csv",index=False)
             elif imputeby in ['mwg','pg']:
                 data_missing_copy = data_missing.copy()
                 if imputeby == 'mwg':
@@ -144,16 +148,15 @@ if __name__=="__main__":
                                                                                 method="pseudo-Gibbs")
                 missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
                 na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
-                na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
-                np.savetxt(outname + ".csv", missing_imputed_rescaled, delimiter=",")
-                np.savetxt('loglikelihood_across_iterations_' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
+                na_indices.to_csv('NA_imputed_values_' + outname_i + '.csv')
+                np.savetxt(outname_i + ".csv", missing_imputed_rescaled, delimiter=",")
+                np.savetxt('loglikelihood_across_iterations_' + outname_i + '.csv', np.array(convergence_loglik), delimiter=',')
                 mae = sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0])
-                mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
-                mae_df.to_csv(f"MAE_{outname}.csv", index=False)
+                mae_df = pd.DataFrame({'dataset': [outname_i], 'MAE': [mae]})
+                mae_df.to_csv(f"MAE_{outname_i}.csv", index=False)
                 print("Mean Absolute Error:", mae)                                          
             else:
-                sys.stderr.write('No valid Multiple imputation procedure specified, but nDat > 1. Please refine nDat or specify --imputeBy to be mwg, pg or sir.\n') 
-                sys.exit(1)
+                raise ValueError(f"No valid Multiple imputation procedure specified, but nDat > 1. Please refine nDat or specify --imputeBy to be mwg, pg or sir.")
+
         else:
-            sys.stderr.write('No valid imputation procedure specified. Please specify either si, mwg, pg or sir with the --imputeBy flag.\n')
-            sys.exit(1)
+            raise ValueError(f"No valid imputation procedure specified. Please specify either si, mwg, pg or sir with the --imputeBy flag.")
