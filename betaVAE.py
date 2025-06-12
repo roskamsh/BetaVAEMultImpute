@@ -237,7 +237,7 @@ class VariationalAutoencoder(tf.keras.Model):
         else:
             return data_miss_val, convergence_loglik
 
-    def impute_metropolis_within_gibbs(self, data_miss_val, na_ind, max_iter=10):
+    def impute_metropolis_within_gibbs(self, data_miss_val, na_ind, max_iter=1000):
         convergence_loglik = []
         all_changed_indicies = []
         z_prior = tfp.distributions.Normal(loc=np.zeros([data_miss_val.shape[0], self.latent_dim]), 
@@ -290,7 +290,7 @@ class VariationalAutoencoder(tf.keras.Model):
                     data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
         return data_miss_val, convergence_loglik 
 
-    def impute_pseudo_gibbs(self, data_miss_val, na_ind, max_iter=10):
+    def impute_pseudo_gibbs(self, data_miss_val, na_ind, max_iter=1000):
         convergence_loglik = []
         for i in range(max_iter):
             z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
@@ -371,7 +371,7 @@ class VariationalAutoencoder(tf.keras.Model):
             mult_imp_datasets.append(np.copy(data_miss_val))
         return mult_imp_datasets, ess 
      
-    def impute_sampling_importance_resampling(self, data_miss_val, na_ind, compl_ind, max_iter=10, m=1, proposal = 't', df = 3):
+    def impute_sampling_importance_resampling(self, data_miss_val, na_ind, compl_ind, max_iter=1000, m=1, proposal = 't', df = 3):
         z_prior = tfp.distributions.Normal(
             loc=np.zeros([data_miss_val.shape[0], self.latent_dim]), 
             scale=np.ones([data_miss_val.shape[0], self.latent_dim])
@@ -393,7 +393,7 @@ class VariationalAutoencoder(tf.keras.Model):
                                                  max_iter=max_iter, m=m)
 
     
-    def impute_multiple(self, data_corrupt, max_iter=10, m = 1, method = 'pseudo-Gibbs', proposal = 't', df=3):
+    def impute_multiple(self, data_corrupt, max_iter=1000, m = 1, method = 'pseudo-Gibbs', proposal = 't', df=3):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
