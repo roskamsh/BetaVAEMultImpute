@@ -157,7 +157,7 @@ process PLOT_ACROSS_BETAS {
     geom_point(
         data = filter(highlight_points, type == "beta_subopt"),
         aes(x = beta, y = median_approxloglik, shape = type, color = type),
-        size = 6
+        size = 4
     ) +
     geom_point(
         data = filter(highlight_points, type == "beta_hat"),
