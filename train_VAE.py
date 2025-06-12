@@ -10,13 +10,15 @@ from bin.helper_functions import get_scaled_data
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='path to configuration json file')
 parser.add_argument('--nextflow', type=bool, default=False, help = 'Whether you are running from a nextflow pipeline or not.')
+parser.add_argument('--beta', type=float, default=1, help = 'Value of beta to train with.')
 
 if __name__ == '__main__':
     args = parser.parse_args()
     configfile = args.config
     run_nextflow = args.nextflow
-    configfile = "data/configs/test_params.json"
-    run_nextflow=False
+    beta = args.beta
+    #configfile = "data/configs/test_params.json"
+    #run_nextflow=False
     with open(configfile) as f:
         config = json.load(f)
 
@@ -27,9 +29,10 @@ if __name__ == '__main__':
             hidden_size_2=config["hidden_size_2"],  
             training_epochs = config["training_epochs"],
             batch_size = config["batch_size"],
-            beta = config["beta"],
+            beta = beta,
             data_path = config["data_path"],
-            corrupt_data_path = config["corrupt_data_path"]
+            corrupt_data_path = config["corrupt_data_path"],
+            initial_imputation_strategy = config["initial_imputation_strategy"]
             )
     
     # Set up and scale dataframes
