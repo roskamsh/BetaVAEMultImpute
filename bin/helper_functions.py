@@ -102,9 +102,9 @@ def impute_nas_with_iterative_imputer(data_missing, type_imputer, params):
     
 def perform_initial_imputation(data_missing, type_imputer, params=param_imputation):
     """
-    Here we run initial imputation at missing value indicies. 
-    This can be done either by using the IterativeImputer, specifying options "knn", "iterative_bayesridge" or "iterative_randomforest".
-    However, this method is very slow / not feasible for large dimensions, so we recommend imputing with zeros to start, for z-scored data.
+    To run initial imputation at missing value indicies.
+    Imputation be done either by imputing zeros or using the IterativeImputer (specifying options "simple", "knn", "iterative_bayesridge" or "iterative_randomforest").
+    However, this method is very slow / not feasible for large dimensions (approx. > 1e3 features), so we recommend imputing with zeros to start, for z-scored data.
     """
 
     if type_imputer == "zero":
