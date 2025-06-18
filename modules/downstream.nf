@@ -1,7 +1,7 @@
 process LASSO {
     publishDir "${params.outdir}/lasso/${imputation}/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     label 'lasso'
  
@@ -87,7 +87,7 @@ process LASSO {
 process LASSO_TRUE {
     publishDir "${params.outdir}/lasso", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     label 'lasso'
 

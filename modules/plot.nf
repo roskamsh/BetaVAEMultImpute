@@ -1,6 +1,8 @@
 process PLOT_ACROSS_BETAS {
     publishDir "${params.outdir}/tune_beta", mode: "copy"
     label 'lasso'
+    cpus 1
+    memory '5 GB'
 
     input:
     tuple val(betas), path(stats), path(logliks), val(coverage_levels_to_plot)
@@ -82,7 +84,6 @@ process PLOT_ACROSS_BETAS {
     ggplot(mapping = aes(x = beta, y = MAE, group = Coverage_level_label)) +
     geom_point() +
     geom_line() +
-    ylim(0,1) +
     theme_bw()
 
     hline_data <- stats_forplot %>%
@@ -120,7 +121,7 @@ process PLOT_ACROSS_BETAS {
     plot_grid(mae_across_betas_plot, ec_across_betas_plot)
     dev.off()
 
-    pdf("MAE_EC_tradeoff_by_beta.pdf", 7, 5)
+    pdf("MAE_EC_tradeoff_by_beta.pdf", 8, 5)
     print(tradeoff_across_betas_plot)
     dev.off()
 
@@ -131,16 +132,18 @@ process PLOT_ACROSS_BETAS {
         beta_hat = beta[which.max(median_approxloglik)],
         max_loglik = max(median_approxloglik),
         .groups = "drop"
-    )
+    ) %>%
+    left_join(summarized_logliks, by = c("wrt","beta_hat" = "beta")) %>%
+    select(wrt, beta_hat, max_loglik, bound_inf_hat = bound_inf)
 
     beta_subopt <- summarized_logliks %>%
-    left_join(beta_hat, by = "wrt") %>%
+    inner_join(beta_hat, by = "wrt") %>%
     filter(
-        median_approxloglik > bound_inf,
-        beta >= beta_hat
+        beta >= beta_hat,
+        median_approxloglik > bound_inf_hat
     ) %>%
     group_by(wrt) %>%
-    slice_min(beta, with_ties = FALSE) %>%
+    slice_max(beta, with_ties = FALSE) %>%  # Select the rightmost qualifying beta
     ungroup() %>%
     select(wrt, beta, median_approxloglik) %>%
     mutate(type = "beta_subopt")
@@ -157,7 +160,7 @@ process PLOT_ACROSS_BETAS {
     geom_point(
         data = filter(highlight_points, type == "beta_subopt"),
         aes(x = beta, y = median_approxloglik, shape = type, color = type),
-        size = 4
+        size = 6
     ) +
     geom_point(
         data = filter(highlight_points, type == "beta_hat"),
@@ -174,7 +177,7 @@ process PLOT_ACROSS_BETAS {
         color = "Tuned betas") +
     theme_minimal()
 
-    pdf("Approx_loglikelihood_ymis_given_yobs_by_beta.pdf", 7, 5)
+    pdf("Approx_loglikelihood_ymis_given_yobs_by_beta.pdf", 8, 5)
     print(approx_logilk_across_betas_plot)
     dev.off()
     """

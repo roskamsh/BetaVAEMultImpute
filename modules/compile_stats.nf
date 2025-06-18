@@ -1,7 +1,7 @@
 process COMPILE_NA_INDICES {
     publishDir "${params.outdir}/multiple_imputation/${imputation}/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
     tuple val(beta), val(imputation), path(na_indices)
@@ -38,7 +38,7 @@ process COMPILE_NA_INDICES {
 process COMPUTE_CIs {
     publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
     tuple val(beta), val(imputation), path(na_indices)
@@ -98,7 +98,7 @@ process COMPUTE_CIs {
 process COMPUTE_PERCENTILES {
     publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
     tuple val(beta), val(imputation), path(na_indices)
@@ -152,7 +152,7 @@ process COMPUTE_PERCENTILES {
 process SUMMARISE_APPROX_LOGLIK {
     publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '20 GB' 
+    memory '5 GB' 
 
     input:
     tuple val(beta), val(imputation), path(loglik)
@@ -192,7 +192,7 @@ process SUMMARISE_APPROX_LOGLIK {
 process COMPUTE_MAE_SINGLE {
     publishDir "${params.outdir}/single_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
     tuple val(beta), val(imputation), path(na_indices)

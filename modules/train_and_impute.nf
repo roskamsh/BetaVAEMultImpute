@@ -1,7 +1,7 @@
 process TRAIN_VAE {
     publishDir "${params.outdir}/model/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     input:
     tuple val(beta), path(betaVAE), path(training_script), path(helper), path(config), path(data_complete), path(data_corrupt)
@@ -18,7 +18,7 @@ process TRAIN_VAE {
 process SINGLE_IMPUTATION {
     publishDir "${params.outdir}/single_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     input:
     tuple val(beta), path(encoder), path(decoder), path(config), path(betaVAE), path(imputation_script), path(helper), path(data_complete), path(data_corrupt)
@@ -37,7 +37,7 @@ process SINGLE_IMPUTATION {
 process IMPUTE_MULTIPLE_MG {
     publishDir "${params.outdir}/multiple_imputation/metropolis-within-gibbs/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     input:
     tuple val(beta), path(encoder), path(decoder), path(config), path(betaVAE), path(imputation_script), path(helper), path(data_complete), path(data_corrupt), val(dataset)
@@ -56,7 +56,7 @@ process IMPUTE_MULTIPLE_MG {
 process IMPUTE_MULTIPLE_pG {
     publishDir "${params.outdir}/multiple_imputation/pseudo-gibbs/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     input:
     tuple val(beta), path(encoder), path(decoder), path(config), path(betaVAE), path(imputation_script), path(helper), path(data_complete), path(data_corrupt), val(dataset)
@@ -75,7 +75,7 @@ process IMPUTE_MULTIPLE_pG {
 process IMPUTE_MULTIPLE_iS {
     publishDir "${params.outdir}/multiple_imputation/sampling-importance-resampling/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     input:
     tuple val(beta), path(encoder), path(decoder), path(config), path(betaVAE), path(imputation_script), path(helper), path(data_complete), path(data_corrupt), val(num_datasets)
