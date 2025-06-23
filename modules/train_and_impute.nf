@@ -16,7 +16,7 @@ process TRAIN_VAE {
 }
 
 process SINGLE_IMPUTATION {
-    publishDir "${params.outdir}/single_imputation/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/single-imputation/beta_${beta}", mode: "copy"
     cpus 1
     memory '10 GB'
 
@@ -35,7 +35,7 @@ process SINGLE_IMPUTATION {
 }
 
 process IMPUTE_MULTIPLE_MG {
-    publishDir "${params.outdir}/multiple_imputation/metropolis-within-gibbs/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/metropolis-within-gibbs/beta_${beta}", mode: "copy"
     cpus 1
     memory '10 GB'
 
@@ -54,7 +54,7 @@ process IMPUTE_MULTIPLE_MG {
 }
 
 process IMPUTE_MULTIPLE_pG {
-    publishDir "${params.outdir}/multiple_imputation/pseudo-gibbs/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/pseudo-gibbs/beta_${beta}", mode: "copy"
     cpus 1
     memory '10 GB'
 
@@ -73,7 +73,7 @@ process IMPUTE_MULTIPLE_pG {
 }
 
 process IMPUTE_MULTIPLE_iS {
-    publishDir "${params.outdir}/multiple_imputation/sampling-importance-resampling/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/sampling-importance-resampling/beta_${beta}", mode: "copy"
     cpus 1
     memory '10 GB'
 
@@ -94,7 +94,7 @@ process IMPUTE_MULTIPLE_iS {
 }
 
 process IMPUTE_MEAN {
-    publishDir "${params.outdir}/mean_imputation", mode: "copy"
+    publishDir "${params.outdir}/mean-imputation", mode: "copy", pattern: "*mean*"
     cpus 1
     memory '10 GB'
 
@@ -102,7 +102,8 @@ process IMPUTE_MEAN {
     tuple path(helper), path(config), path(data_complete), path(data_corrupt)
 
     output:
-    tuple val("none"), val("mean-imputation"), path("mean_imputed_dataset.csv"), path(data_corrupt), path(data_complete)
+    tuple val("none"), val("mean-imputation"), path("mean_imputed_dataset.csv"), path(data_corrupt), path(data_complete), emit: dataset 
+    tuple val("none"), val("mean-imputation"), path("NA_imputed_values_mean-imputation.csv"), emit: NAvals
 
     script:
     """
@@ -110,6 +111,7 @@ process IMPUTE_MEAN {
     from bin.helper_functions import get_scaled_data
     import json
     import numpy as np
+    import pandas as pd
 
     configfile = "${config}"
     run_nextflow = True
@@ -129,10 +131,32 @@ process IMPUTE_MEAN {
             initial_imputation_strategy = config["initial_imputation_strategy"]
             )
     
-    # Set up and scale dataframes
-    data, data_missing = get_scaled_data(config["data_path"],config["corrupt_data_path"],
+    # Run initial imputation
+    data, data_imputed = get_scaled_data(config["data_path"],config["corrupt_data_path"],
                                          initial_imputation_strategy="zero",
                                          nextflow=run_nextflow)
-    np.savetxt("mean_imputed_dataset.csv", data_missing, delimiter=",")
+    # Get scaler & data_missing (with nans)
+    data, data_missing, scaler = get_scaled_data(config["data_path"],config["corrupt_data_path"],
+                                         initial_imputation_strategy="zero",
+                                         nextflow=run_nextflow,
+                                         return_scaler=True, put_nans_back=True)
+    
+    # Get missing sample rows
+    missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
+    
+    # Re-scale
+    # mean-imputed data
+    imputed_rescaled = scaler.inverse_transform(data_imputed.copy()) 
+    imputed_missing_samples = imputed_rescaled[missing_rows].copy()
+    # Original data
+    data_rescaled = scaler.inverse_transform(data.copy())
+    truevals_data_missing = data_rescaled[missing_rows].copy()
+
+    # Export missing value indices
+    na_ind = np.where(np.isnan(data_missing[missing_rows]))
+    na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], 'mean': imputed_missing_samples[na_ind]})
+    na_indices.to_csv('NA_imputed_values_mean-imputation.csv')
+
+    np.savetxt("mean_imputed_dataset.csv", imputed_missing_samples, delimiter=",")
     """
 }
