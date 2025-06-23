@@ -17,8 +17,6 @@ if __name__ == '__main__':
     configfile = args.config
     run_nextflow = args.nextflow
     beta = args.beta
-    #configfile = "data/configs/test_params.json"
-    #run_nextflow=False
     with open(configfile) as f:
         config = json.load(f)
 
