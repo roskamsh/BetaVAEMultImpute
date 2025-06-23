@@ -1,4 +1,5 @@
 include { IMPUTE_MEAN } from '../modules/train_and_impute.nf'
+include { COMPUTE_MAE_SINGLE } from '../modules/compile_stats.nf'
 
 workflow IMPUTE_BY_MEAN {
     main:
@@ -17,10 +18,14 @@ workflow IMPUTE_BY_MEAN {
             .combine(corrupt_data_ch)
 
         if (params.run_mean_imputation) {
-            mean_imputed_dataset = IMPUTE_MEAN(input_ch)
+            IMPUTE_MEAN(input_ch) 
+            mean_imputed_dataset = IMPUTE_MEAN.out.dataset
+            mean_imputed_na_vals = IMPUTE_MEAN.out.NAvals
         } else {
             mean_imputed_dataset = Channel.empty()
+            mean_imputed_na_vals = Channel.empty()
         }
+        COMPUTE_MAE_SINGLE(mean_imputed_na_vals)
     emit:
         mean_imputed_dataset
 }
