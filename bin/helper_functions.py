@@ -1,19 +1,22 @@
 import os
-import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import json
-
-try:
-    with open("VAE_config.json") as f:
-        config = json.load(f)
-except:
-    with open("../VAE_config.json") as f:
-        config = json.load(f)
-data_path = config["data_path"]
-corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
+from sklearn.experimental import enable_iterative_imputer  
+from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
+from sklearn.linear_model import BayesianRidge
+from sklearn.ensemble import RandomForestRegressor
+import tensorflow as tf
+
+import tensorflow_probability as tfp
+
+param_imputation = {
+        'strategy': 'mean',  # for simple imputer  (mean or median)
+        'n_neighbors': 5,    # for knn imputer
+        'max_iter': 20,      # for iterative imputer
+        'tol': 1e-3          # for iterative imputer
+    }
 
 def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
     na_ind = np.where(np.isnan(data_missing))
@@ -33,8 +36,6 @@ def evaluate_coverage_quantile(multi_imputes, data, data_missing, scaler):
         'prop_99q': np.array([low_q99[i] < true_values[i] < up_q99[i] for i in range(len(true_values))]).mean(),
     }
     return results
-
-
 
 def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     assert data_missing.shape == data.shape
@@ -68,32 +69,79 @@ def evaluate_coverage(multi_imputes, data, data_missing, scaler):
     print('average absolute error:', MAE)
     return results
 
-def get_scaled_data(return_scaler=False, put_nans_back=False, data_path=data_path, corrupt_data_path=corrupt_data_path):
-    running_dir = os.getcwd()
-    for _ in range(3):
-        if os.path.split(os.getcwd())[-1] == 'BetaVAEMImputation':
-            break
-        os.chdir('..')
-    data = pd.read_csv(data_path).values
-    data_missing = pd.read_csv(corrupt_data_path).values
+def impute_nas_with_zeros(data_missing):
+    data_imputed = data_missing.copy()
+    na_ind = np.where(np.isnan(data_imputed))
+    data_imputed[na_ind] = 0
+    return data_imputed
+
+def impute_nas_with_iterative_imputer(data_missing, type_imputer, params):
+    if isinstance(data_missing, np.ndarray):
+        dataframe_with_nans = pd.DataFrame(data_missing)
+    else:
+        dataframe_with_nans = data_missing.copy()
+    if type_imputer == "simple":
+        imp = SimpleImputer(missing_values=np.nan, strategy=params['strategy'])
+    elif type_imputer == "knn":
+        imp = KNNImputer(missing_values=np.nan, n_neighbors=params['n_neighbors'])
+    elif type_imputer == "iterative_bayesridge":  # regularized linear regression
+        imp = IterativeImputer(estimator=BayesianRidge(), missing_values=np.nan,
+                               max_iter=params['max_iter'], tol=params['tol'])
+    elif type_imputer == "iterative_randomforest":  # Forests of randomized trees regression
+        imp = IterativeImputer(estimator=RandomForestRegressor(), missing_values=np.nan,
+                               max_iter=params['max_iter'], tol=params['tol'],verbose=1)
+    else:
+        raise ValueError(f"Invalid type of imputer chosen: {type_imputer}. Choose from 'simple', 'knn', 'iterative'.")
+    data_imputed = imp.fit_transform(dataframe_with_nans)
+
+    if isinstance(data_missing, np.ndarray):
+        return data_imputed
+    elif isinstance(data_missing, pd.DataFrame):
+        return data_imputed.to_numpy()
+    return data_imputed
+    
+def perform_initial_imputation(data_missing, type_imputer, params=param_imputation):
+    """
+    To run initial imputation at missing value indicies.
+    Imputation be done either by imputing zeros or using the IterativeImputer (specifying options "simple", "knn", "iterative_bayesridge" or "iterative_randomforest").
+    However, this method is very slow / not feasible for large dimensions (approx. > 1e3 features), so we recommend imputing with zeros to start, for z-scored data.
+    """
+
+    if type_imputer == "zero":
+        data_imputed = impute_nas_with_zeros(data_missing)
+    elif type_imputer in ["simple","knn","iterative_bayesridge","iterative_randomforest"]:
+        data_imputed = impute_nas_with_iterative_imputer(data_missing, type_imputer, params)
+    else:
+        raise ValueError(f"Invalid type of imputer chosen: {type_imputer}. Choose from 'simple', 'knn', 'iterative', or 'zero'.")
+
+    return data_imputed
+
+def get_scaled_data(data_path, corrupt_data_path, initial_imputation_strategy, return_scaler=False, put_nans_back=False, nextflow=False):
+    data_fn = os.path.basename(data_path)
+    corrupt_data_fn = os.path.basename(corrupt_data_path) 
+    # If running in nextflow, use the data & corrupt data in cwd
+    if nextflow:
+        data = pd.read_csv(os.path.join(os.getcwd(),data_fn)).values
+        data_missing = pd.read_csv(os.path.join(os.getcwd(),corrupt_data_fn)).values 
+    else:
+        data = pd.read_csv(data_path).values 
+        data_missing = pd.read_csv(corrupt_data_path).values
     non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
     sc.fit(data_missing_complete)
     del data_missing_complete
-    data_missing[na_ind] = 0
+    data_missing = perform_initial_imputation(data_missing, type_imputer = initial_imputation_strategy)
     data_missing = sc.transform(data_missing)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
-    os.chdir(running_dir)
     if put_nans_back:
         data_missing[na_ind] = np.nan
     if return_scaler:
         return data, data_missing, sc
     else:
         return data, data_missing
-
 
 def apply_scaler(data, data_missing, return_scaler=False):
     non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
@@ -112,6 +160,133 @@ def apply_scaler(data, data_missing, return_scaler=False):
     else:
         return data, data_missing
 
+def mc_wrt_p(data_complete, num_samples_mc, model, want_log=True, observed_indices_mask=None):
+    N = data_complete.shape[0]
+    beta = model.beta
+    latent_dim = model.latent_dim
+    
+    z_prior = tfp.distributions.Normal(
+            loc=np.zeros([data_complete.shape[0], latent_dim]), 
+            scale=np.ones([data_complete.shape[0], latent_dim])
+    ) 
+    zmc = z_prior.sample((num_samples_mc,)).numpy()
+    
+    prob_byobs = []
+    for i in range(N):
+        data_complete_i = data_complete[i]
+        zi = zmc[:,i,:]
+        x_hat_mean, x_hat_log_sigma_sq = model.decoder.predict(zi)
+        x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+        X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # size [num_samples_mcmc, num_features]
+        if want_log:
+            # Here logpy is an array with the logp for observation i and each sample across num_samples_mcmc
+            # Will be size [num_samples_mc]
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy()  
+            else:
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy(), axis=1).numpy() 
+            c = np.max(logpy)
+            internal_mean = np.mean(np.exp(logpy - c), axis=0)
+            result = np.log(internal_mean) + c
+        else:
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy() 
+            else:
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
+            result = np.mean(py, axis=0)
+        prob_byobs.append(result)
+    return np.array(prob_byobs)
+
+def mc_wrt_q(data_complete, num_samples_mc, model, proposal, df, want_log=True, observed_indices_mask=None):
+    N = data_complete.shape[0]
+    beta = model.beta
+    latent_dim = model.latent_dim
+
+    z_mean, z_log_sigma_sq, _ = model.encoder.predict(data_complete)
+    z_Distribution = model.get_proposal_distribution(z_mean=z_mean, z_log_sigma_sq=z_log_sigma_sq, proposal=proposal, df=df)
+    z_prior = tfp.distributions.Normal(
+            loc=np.zeros([data_complete.shape[0], latent_dim]), 
+            scale=np.ones([data_complete.shape[0], latent_dim])
+    )  
+    
+    zmc = z_Distribution.sample((num_samples_mc,)).numpy() # size [num_samples_mc, num_obs, latent_dim]
+    
+    # Compute logpz & logqz across all samples
+    if want_log:
+        logpz_byobs = np.transpose(tf.reduce_sum(z_prior.log_prob(zmc),axis=2))
+        logqz_byobs = np.transpose(z_Distribution.log_prob(zmc))
+    else:
+        pz_byobs = np.transpose(tf.reduce_sum(z_prior.prob(zmc),axis=2))
+        qz_byobs = np.transpose(z_Distribution.prob(zmc))
+
+    prob_byobs = []
+    for i in range(N):
+        data_complete_i = data_complete[i]
+        zi = zmc[:,i,:]
+        x_hat_mean, x_hat_log_sigma_sq = model.decoder.predict(zi)
+        x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+        X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # size [num_samples_mcmc, num_features]
+        if want_log:
+            # Here logpy is an array with the logp for observation i and each sample across num_samples_mcmc
+            # Will be size [num_samples_mc]
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy()  
+            else:
+                logpy = tf.reduce_sum(X_hat_distribution.log_prob(data_complete_i).numpy(), axis=1).numpy() 
+            temp = logpy + logpz_byobs[i] - logqz_byobs[i]
+            c = np.max(temp, axis=0)
+            internal_mean = np.mean(np.exp(temp - c), axis=0)
+            result = np.log(internal_mean) + c
+        else:
+            if observed_indices_mask is not None:
+                obs_mask_i = observed_indices_mask[i,:].copy()
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy() * obs_mask_i, axis=1).numpy() 
+            else: 
+                py = tf.reduce_sum(X_hat_distribution.prob(data_complete_i).numpy(), axis=1).numpy()
+            temp = (pz_byobs[i]*py)/qz_byobs[i]
+            result = np.mean(temp, axis=0)
+        
+        prob_byobs.append(result)
+    return np.array(prob_byobs)
+
+def log_lik_ymis_given_obs_mcmc_q(data, data_corrupt, model, num_samples_mc=500, proposal='t', df=3):
+    missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
+    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:].copy()
+    data_complete_at_missing_samples = data[missing_row_ind[0],:].copy()
+    compl_ind = np.where(np.isfinite(data_corrupt_at_missing_samples))
+    observed_indices_mask = np.zeros(data_complete_at_missing_samples.shape)
+    observed_indices_mask[compl_ind] = 1
+
+    # log_p_y is a list of length N_samp, with the approximation of logp(y_true) from mc
+    log_p_y = mc_wrt_q(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       proposal=proposal, df=df, observed_indices_mask=None, want_log=True)
+    log_p_yobs = mc_wrt_q(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                          proposal=proposal, df=df, observed_indices_mask=observed_indices_mask, want_log=True)
+    
+    log_p_y_mis_given_obs = log_p_y - log_p_yobs
+
+    return log_p_y_mis_given_obs
+
+def log_lik_ymis_given_obs_mcmc_p(data, data_corrupt, model, num_samples_mc=500):
+    missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
+    data_corrupt_at_missing_samples = data_corrupt[missing_row_ind[0],:].copy()
+    data_complete_at_missing_samples = data[missing_row_ind[0],:].copy()
+    compl_ind = np.where(np.isfinite(data_corrupt_at_missing_samples))
+    observed_indices_mask = np.zeros(data_complete_at_missing_samples.shape)
+    observed_indices_mask[compl_ind] = 1
+
+    # log_p_y is a list of length N_samp, with the approximation of logp(y_true) from mc
+    log_p_y = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       observed_indices_mask=None, want_log=True)
+    log_p_yobs = mc_wrt_p(data_complete_at_missing_samples, num_samples_mc=num_samples_mc, model=model, 
+                       observed_indices_mask=observed_indices_mask, want_log=True)
+    
+    log_p_y_mis_given_obs = log_p_y - log_p_yobs
+
+    return log_p_y_mis_given_obs
 
 class DataMissingMaker: # TODO remove this unused class
     def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):

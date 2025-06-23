@@ -1,12 +1,12 @@
 process LASSO {
-    publishDir "${params.outdir}/lasso/${imputation}", mode: "copy"
+    publishDir "${params.outdir}/lasso/${imputation}/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     label 'lasso'
-
+ 
     input:
-    tuple val(imputation), path(data_impute), path(data_miss), path(data_compl)
+    tuple val(beta), val(imputation), path(data_impute), path(data_miss), path(data_compl)
 
     output:
     tuple val(imputation), path("*_lasso_coeff.csv")
@@ -87,7 +87,7 @@ process LASSO {
 process LASSO_TRUE {
     publishDir "${params.outdir}/lasso", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '10 GB'
 
     label 'lasso'
 

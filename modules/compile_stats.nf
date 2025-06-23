@@ -1,13 +1,13 @@
 process COMPILE_NA_INDICES {
-    publishDir "${params.outdir}/multiple_imputation/${imputation}", mode: "copy"
+    publishDir "${params.outdir}/multiple_imputation/${imputation}/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
-    tuple val(imputation), path(na_indices)
+    tuple val(beta), val(imputation), path(na_indices)
 
     output:
-    tuple val(imputation), path("${imputation}_compiled_NA_indices.csv")
+    tuple val(beta), val(imputation), path("${imputation}_beta${beta}_compiled_NA_indices.csv")
 
     script:
     """
@@ -30,91 +30,81 @@ process COMPILE_NA_INDICES {
         }
     }
 
-    outname = paste0("${imputation}", '_compiled_NA_indices.csv')
+    outname = paste0("${imputation}", "_beta", "${beta}",'_compiled_NA_indices.csv')
     write.csv(final, outname, row.names = F)
     """
 }
 
 process COMPUTE_CIs {
-    publishDir "${params.outdir}/multiple_imputation", mode: "copy"
+    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
-    tuple val(imputation), path(na_indices)
+    tuple val(beta), val(imputation), path(na_indices)
 
     output:
-    path("${imputation}_stats.csv")
+    tuple val(beta), path("${imputation}_beta${beta}_stats.csv")
 
     script:
     """
     #!/usr/bin/env python
 
-    import os
-    import pickle
-    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    import json
 
-    from sklearn.preprocessing import StandardScaler
+    fname = "${na_indices}"
+    beta = "${beta}"
+    imputation = "${imputation}"
 
-    res = pd.read_csv("${na_indices}").values
+    res = pd.read_csv(fname).values
 
     # Assign first column of values to new variable and then remove it from res
     truevals = res[:,0]
     impvals = res[:,1:]
 
+    # Compute statistics across all M datasets
     means = np.mean(impvals, axis=1)
     st_devs = np.std(impvals, axis=1)
     differences = np.abs(truevals - means)
     n_deviations = differences / st_devs
-    ci_70 = 1.036
-    ci_75 = 1.150
-    ci_80 = 1.282
-    ci_85 = 1.440
-    ci_90 = 1.645
-    ci_95 = 1.960
-    ci_99 = 2.576
-    prop_70 = sum(n_deviations < ci_70) / len(n_deviations)
-    prop_75 = sum(n_deviations < ci_75) / len(n_deviations)
-    prop_80 = sum(n_deviations < ci_80) / len(n_deviations)
-    prop_85 = sum(n_deviations < ci_85) / len(n_deviations)
-    prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
-    prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
-    prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
-    print('prop 70:', prop_70)
-    print('prop 75:', prop_75)
-    print('prop 80:', prop_80)
-    print('prop 85:', prop_85)
-    print('prop 90:', prop_90)
-    print('prop 95:', prop_95)
-    print('prop 99:', prop_99)
-
-    differences = np.abs(truevals - means)
     mae = np.mean(differences)
     print('average absolute error:', mae)
 
-    res = ["${imputation}", mae, prop_70, prop_75, prop_80, prop_85, prop_90, prop_95, prop_99]
+    cis = [70,75,80,85,90,95,99]
+    alphas = [1.036,1.150,1.282,1.440,1.645,1.960,2.576]
+
+    ecs = []
+    tradeoff_mae_ecs = []
+    for i,alpha in enumerate(alphas):
+        ci_level = cis[i]
+        ec = sum(n_deviations < alpha) / len(n_deviations)
+        tradeoff_mae_ec = mae + 0.5*max(0, ci_level/100 - ec)
+        ecs.append(ec)
+        tradeoff_mae_ecs.append(tradeoff_mae_ec)
+
+    ec_strings = ["EC_" + str(ci) for ci in cis]
+    tradeoff_strings = ["tradeoff_mae_ec_" + str(ci) for ci in cis]
+    res = [beta, imputation, mae] + ecs + tradeoff_mae_ecs
 
     # Make pandas dataframe
-    out_table = pd.DataFrame(res, index = ["imputation_strategy","MAE","ci_70","ci_75","ci_80","ci_85","ci_90","ci_95","ci_99"])
+    out_table = pd.DataFrame(res, index = ["beta","imputation_strategy","MAE"] + ec_strings + tradeoff_strings)
 
     # export table
-    out_table.to_csv("${imputation}_stats.csv", header = False)
+    out_table.to_csv(f"{imputation}_beta{beta}_stats.csv", header = False)
     """
 }
 
 process COMPUTE_PERCENTILES {
-    publishDir "${params.outdir}/multiple_imputation", mode: "copy"
+    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB'
 
     input:
-    tuple val(imputation), path(na_indices)
+    tuple val(beta), val(imputation), path(na_indices)
 
     output:
-    path("${imputation}_imputation_percentiles.csv")
+    tuple val(beta), path("${imputation}_beta${beta}_imputation_percentiles.csv")
 
     script:
     """
@@ -151,35 +141,71 @@ process COMPUTE_PERCENTILES {
         out[0][i] = prcnt
 
     out_table = pd.DataFrame(out, index = ["${imputation}"], columns = prcntiles_names)
+    out_table["beta"] = "${beta}"
 
     # export table
-    out_table.to_csv("${imputation}_imputation_percentiles.csv", header = True) 
+    out_table.to_csv("${imputation}_beta${beta}_imputation_percentiles.csv", header = True,index=False) 
     """
 }
 
-process COMPUTE_MAE_SINGLE {
-    publishDir "${params.outdir}/single_imputation", mode: "copy"
+
+process SUMMARISE_APPROX_LOGLIK {
+    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
     cpus 1
-    memory '32 GB'
+    memory '5 GB' 
 
     input:
-    tuple val(imputation), path(na_indices)
+    tuple val(beta), val(imputation), path(loglik)
 
     output:
-    path("${imputation}_stats.csv")
+    tuple val(beta), path("Approx_loglik_beta${beta}_summarized.csv")
 
     script:
     """
     #!/usr/bin/env python
 
-    import os
-    import pickle
-    import matplotlib.pyplot as plt
+    import pandas as pd
+    import numpy as np
+
+    fname = "${loglik}"
+    beta = "${beta}" 
+
+    res = pd.read_csv(fname)
+
+    median_p = np.median(res[["mcmc_p"]].values)
+    median_q = np.median(res[["mcmc_q"]].values)
+
+    bound_sup_p = np.quantile(res[["mcmc_p"]].values, 0.75)
+    bound_sup_q = np.quantile(res[["mcmc_q"]].values, 0.75) 
+    bound_inf_p = np.quantile(res[["mcmc_p"]].values, 0.25)
+    bound_inf_q = np.quantile(res[["mcmc_q"]].values, 0.25) 
+
+    df = pd.DataFrame({'beta': [beta,beta], 'median_approxloglik': [median_p,median_q], 
+                    'bound_inf': [bound_inf_p,bound_inf_q], 'bound_sup': [bound_sup_p,bound_sup_q],
+                    'wrt': ["p","q"]})
+
+    df.to_csv("Approx_loglik_beta${beta}_summarized.csv",index=False)
+    """
+}
+
+
+process COMPUTE_MAE_SINGLE {
+    publishDir "${params.outdir}/single_imputation/beta_${beta}", mode: "copy"
+    cpus 1
+    memory '5 GB'
+
+    input:
+    tuple val(beta), val(imputation), path(na_indices)
+
+    output:
+    tuple val(beta), path("${imputation}_beta${beta}_stats.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
     import numpy as np
     import pandas as pd
-    import json
-
-    from sklearn.preprocessing import StandardScaler
 
     res = pd.read_csv("${na_indices}").values
 
@@ -194,8 +220,9 @@ process COMPUTE_MAE_SINGLE {
     res = ["${imputation}", mae]
     # Make pandas dataframe
     out_table = pd.DataFrame(res, index = ["imputation_strategy","MAE"])
+    out_table["beta"] = "${beta}"
 
     # export table
-    out_table.to_csv("${imputation}_stats.csv", header = False)
+    out_table.to_csv("${imputation}_beta${beta}_stats.csv", header = False,index=False)
     """
 }
