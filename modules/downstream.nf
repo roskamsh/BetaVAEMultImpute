@@ -32,11 +32,17 @@ process LASSO {
     data_raw <- as.data.frame(data_raw[,-c(1:4)])
 
     ## need to recompile a complete dataset with data_impute
-    idx <- which(is.na(rowSums(data_missing))) # rows in the original missing dataframe that exist in data_impute
-    # Essentially need to replace the rows corresponding to the index idx in data_missing with data_impute
-    compl_data_impute <- data_missing
-    compl_data_impute[idx,] <- data_impute
-    compl_data_impute <- as.data.frame(compl_data_impute)
+    # Only do below if not mean imputation
+    if ("${imputation}" != "mean-imputation") {
+        idx <- which(is.na(rowSums(data_missing))) # rows in the original missing dataframe that exist in data_impute
+        # Essentially need to replace the rows corresponding to the index idx in data_missing with data_impute
+        compl_data_impute <- data_missing
+        compl_data_impute[idx,] <- data_impute
+        compl_data_impute <- as.data.frame(compl_data_impute)
+    } else {
+        compl_data_impute <- data_impute
+    }
+    
     matr_df <- as.matrix(compl_data_impute)
 
     # pull first cancer type from md
