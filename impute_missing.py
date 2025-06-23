@@ -52,18 +52,6 @@ if __name__=="__main__":
     run_nextflow = args.nextflow
     S = args.approx_loglik_numsamples_mcmc
 
-    # Defaults to run interatively
-    #outname = "test"
-    #configfile = "data/configs/test_params.json"
-    #model_file = "output/model/beta_1/encoder.keras"
-    #imputeby = "sir"
-    #max_iter = 10 
-    #dataset = 1
-    #proposal = "t"
-    #n_dat = 10
-    #S = 500
-    #run_nextflow = False
-
     with open(configfile) as f:
         config = json.load(f)
 
@@ -110,16 +98,16 @@ if __name__=="__main__":
             if n_dat > 1:
                 sys.stderr.write('Single imputation specified, but nDat > 1. Please choose a multiple imputation method or specify nDat=1.\n')
                 sys.exit(1)
-            outname = outname + '_dataset'
+            outname_i = outname + '_dataset'
             missing_imputed, convergence_loglik = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=max_iter)            
             missing_imputed_rescaled = scaler.inverse_transform(missing_imputed.copy())
             na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed_rescaled[na_ind]})
-            na_indices.to_csv('NA_imputed_values_' + outname + '.csv')
+            na_indices.to_csv('NA_imputed_values_' + outname_i + '.csv')
             mae = sum(((missing_imputed_rescaled[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]) 
-            mae_df = pd.DataFrame({'dataset': [outname], 'MAE': [mae]})
-            mae_df.to_csv(f"MAE_{outname}.csv", index=False)
-            np.savetxt(outname + ".csv", missing_imputed_rescaled, delimiter=",")
-            np.savetxt('loglikelihood_across_iterations_' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
+            mae_df = pd.DataFrame({'dataset': [outname_i], 'MAE': [mae]})
+            mae_df.to_csv(f"MAE_{outname_i}.csv", index=False)
+            np.savetxt(outname_i + ".csv", missing_imputed_rescaled, delimiter=",")
+            np.savetxt('loglikelihood_across_iterations_' + outname_i + '.csv', np.array(convergence_loglik), delimiter=',')
             print(f"Mean Absolute Error: {mae}")
         # Multiple imputation
         elif imputeby in ['mwg','pg','sir']:
