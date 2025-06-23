@@ -22,12 +22,13 @@ params.corrupt_data = "You must provide the corrupt dataset"
 // Optional: do not run certain imputation approaches
 params.run_mwg = true
 params.run_pg = true
-params.run_sir = true
+params.run_mean_imputation = true
 
 // Modules to import
 include { TRAIN_AND_IMPUTE } from './subworkflows/train_and_impute.nf'
 include { EVALUATE_LASSO } from './subworkflows/downstream.nf'
 include { PLOT_ACROSS_BETAS } from './modules/plot.nf'
+include { IMPUTE_BY_MEAN } from './subworkflows/impute_by_mean.nf'
 
 // workflow to tune beta
 workflow TUNE_BETA {
@@ -66,5 +67,7 @@ workflow {
     run_single_imputation = true
     TRAIN_AND_IMPUTE(beta_ch, run_single_imputation)
     
-    EVALUATE_LASSO(TRAIN_AND_IMPUTE.out.imputed_datasets, TRAIN_AND_IMPUTE.out.complete_data)
+    IMPUTE_BY_MEAN()
+
+    EVALUATE_LASSO(TRAIN_AND_IMPUTE.out.imputed_datasets.mix(IMPUTE_BY_MEAN.out), TRAIN_AND_IMPUTE.out.complete_data)
 }
