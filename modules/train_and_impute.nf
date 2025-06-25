@@ -75,7 +75,7 @@ process IMPUTE_MULTIPLE_pG {
 process IMPUTE_MULTIPLE_iS {
     publishDir "${params.outdir}/multiple-imputation/sampling-importance-resampling/beta_${beta}", mode: "copy"
     cpus 1
-    memory '10 GB'
+    memory '40 GB'
 
     input:
     tuple val(beta), path(encoder), path(decoder), path(config), path(betaVAE), path(imputation_script), path(helper), path(data_complete), path(data_corrupt), val(num_datasets)
