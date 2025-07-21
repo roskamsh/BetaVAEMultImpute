@@ -1,5 +1,5 @@
 process COMPILE_NA_INDICES {
-    publishDir "${params.outdir}/multiple_imputation/${imputation}/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/${imputation}/beta_${beta}", mode: "copy"
     cpus 1
     memory '5 GB'
 
@@ -36,7 +36,7 @@ process COMPILE_NA_INDICES {
 }
 
 process COMPUTE_CIs {
-    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/beta_${beta}", mode: "copy"
     cpus 1
     memory '5 GB'
 
@@ -96,7 +96,7 @@ process COMPUTE_CIs {
 }
 
 process COMPUTE_PERCENTILES {
-    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/beta_${beta}", mode: "copy"
     cpus 1
     memory '5 GB'
 
@@ -150,7 +150,7 @@ process COMPUTE_PERCENTILES {
 
 
 process SUMMARISE_APPROX_LOGLIK {
-    publishDir "${params.outdir}/multiple_imputation/beta_${beta}", mode: "copy"
+    publishDir "${params.outdir}/multiple-imputation/beta_${beta}", mode: "copy"
     cpus 1
     memory '5 GB' 
 
@@ -190,7 +190,7 @@ process SUMMARISE_APPROX_LOGLIK {
 
 
 process COMPUTE_MAE_SINGLE {
-    publishDir "${params.outdir}/single_imputation/beta_${beta}", mode: "copy"
+    publishDir "${imputation == 'mean-imputation' ? params.outdir + '/mean-imputation' : params.outdir + '/single-imputation/beta_' + beta}", mode: "copy"
     cpus 1
     memory '5 GB'
 
