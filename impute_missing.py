@@ -48,7 +48,6 @@ if __name__=="__main__":
     dataset = args.dataset 
     proposal = args.sirProposal
     n_dat = args.nDat 
-    outname = args.outName
     run_nextflow = args.nextflow
     S = args.approx_loglik_numsamples_mcmc
 
